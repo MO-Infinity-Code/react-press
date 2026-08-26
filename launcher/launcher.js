@@ -14,10 +14,6 @@ const root =
 
 const logPrefix = () => `[${new Date().toISOString()}] MAIN`
 
-function log(...args) {
-    console.log(logPrefix(), ...args)
-}
-
 function error(...args) {
     console.error(logPrefix(), ...args)
 }
@@ -36,22 +32,12 @@ function waitBeforeExit(code = 1) {
     process.exit(code)
 }
 
-log("========== React Press Launcher ==========")
-log("SEA:", isSea)
-log("Executable:", process.execPath)
-log("Directory:", isSea ? path.dirname(process.execPath) : __dirname)
-log("Root:", root)
-
 const projectPath = path.join(root, "projects", "react-press")
 
 const setupScript = path.join(root, "scripts", "setup-environment.mjs")
 
 const port = 3000
 const url = `http://localhost:${port}/`
-
-log("Project:", projectPath)
-log("Setup:", setupScript)
-log("URL:", url)
 
 if (!fs.existsSync(projectPath)) {
     error("Project directory does not exist")
@@ -86,8 +72,6 @@ function runSetup() {
         }
     }
 
-    log("Node command:", nodeCommand)
-
     const setupProcess = spawn(nodeCommand, [setupScript], {
         cwd: root,
         stdio: "inherit",
@@ -101,8 +85,6 @@ function runSetup() {
     })
 
     setupProcess.on("close", (code) => {
-        log("Setup finished with code:", code)
-
         if (code !== 0) {
             error("Environment setup failed")
             waitBeforeExit(code)
@@ -113,23 +95,17 @@ function runSetup() {
 }
 
 function checkExistingVite() {
-    log("Checking Vite...")
-
     checkPort(port, (exists) => {
         if (exists) {
-            log("Vite is already running")
             openBrowser()
             return
         }
 
-        log("Vite is not running")
         startVite()
     })
 }
 
 function startVite() {
-    log("Starting Vite")
-
     viteProcess = spawn("cmd.exe", ["/d", "/s", "/c", "npm run dev"], {
         cwd: projectPath,
         stdio: "inherit",
@@ -165,7 +141,6 @@ function waitForVite() {
             if (exists) {
                 clearInterval(interval)
 
-                log("Vite is ready")
                 openBrowser()
 
                 return
@@ -222,8 +197,6 @@ function openBrowser() {
     }
 
     browserOpened = true
-
-    log("Opening:", url)
 
     const browser = spawn("cmd.exe", ["/c", "start", "", url], {
         detached: true,
