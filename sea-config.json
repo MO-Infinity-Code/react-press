@@ -1,0 +1,6 @@
+{
+    "main": "launcher/launcher.js",
+    "mainFormat": "module",
+    "output": "dist/react-press.exe",
+    "disableExperimentalSEAWarning": true
+}
