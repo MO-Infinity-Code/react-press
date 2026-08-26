@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0" />
+        <title>React Press - Node.js Required</title>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 24px;
+                font-family: Arial, sans-serif;
+                background: #f5f7fb;
+                color: #111827;
+            }
+
+            .card {
+                width: min(560px, 100%);
+                padding: 40px;
+                border-radius: 20px;
+                background: white;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+                text-align: center;
+            }
+
+            .icon {
+                width: 64px;
+                height: 64px;
+                margin: 0 auto 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                background: #fee2e2;
+                color: #dc2626;
+                font-size: 30px;
+            }
+
+            h1 {
+                margin: 0 0 14px;
+                font-size: 28px;
+            }
+
+            p {
+                margin: 10px 0;
+                line-height: 1.6;
+                color: #4b5563;
+            }
+
+            .version {
+                margin: 24px 0;
+                padding: 16px;
+                border-radius: 12px;
+                background: #f9fafb;
+            }
+
+            .required {
+                font-weight: 700;
+                color: #111827;
+            }
+
+            .detected {
+                color: #dc2626;
+                font-weight: 700;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="icon">!</div>
+
+            <h1>Node.js 26 Required</h1>
+
+            <p>
+                React Press cannot start because a supported Node.js 26 installation was not found.
+            </p>
+
+            <div class="version">
+                <p>
+                    Required:
+                    <span class="required">Node.js 26</span>
+                </p>
+
+                <p id="detected"></p>
+            </div>
+
+            <p>Please install Node.js 26 and restart React Press.</p>
+        </div>
+
+        <script>
+            const params = new URLSearchParams(window.location.search)
+            const detected = params.get("detected")
+            const element = document.getElementById("detected")
+
+            if (detected) {
+                element.innerHTML = `Detected: <span class="detected">${detected}</span>`
+            }
+        </script>
+    </body>
+</html>

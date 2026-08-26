@@ -1,30 +1,85 @@
 import path from "node:path"
 import fs from "node:fs"
 import { log, error } from "./logger.mjs"
-import { __dirname, isSea, root, projectPath, setupScript, url } from "./constants.mjs"
+import { isSea, root, projectPath, setupScript } from "./constants.mjs"
 import { waitBeforeExit } from "./utils.mjs"
 import { runSetup } from "./setup.mjs"
+import { checkExistingVite } from "./viteManager.mjs"
 
-log("========== React Press Launcher ==========")
-log("SEA:", isSea)
-log("Executable:", process.execPath)
-log("Directory:", isSea ? path.dirname(process.execPath) : __dirname)
-log("Root:", root)
+function keepAlive() {
+    if (!isSea) {
+        return
+    }
 
-log("Project:", projectPath)
-log("Setup:", setupScript)
-log("URL:", url)
+    process.stdin.resume()
 
-if (!fs.existsSync(projectPath)) {
-    error("Project directory does not exist")
-    error(projectPath)
-    waitBeforeExit()
+    process.stdin.on("data", () => {})
 }
 
-if (!fs.existsSync(setupScript)) {
-    error("Setup script does not exist")
-    error(setupScript)
-    waitBeforeExit()
+function fail(message, details = null) {
+    error(message)
+
+    if (details) {
+        error(details)
+    }
+
+    keepAlive()
 }
 
-runSetup()
+async function main() {
+    log("========== React Press Launcher ==========")
+    log("SEA:", isSea)
+    log("Executable:", process.execPath)
+    log(
+        "Directory:",
+        isSea ? path.dirname(process.execPath) : path.dirname(new URL(import.meta.url).pathname)
+    )
+    log("Root:", root)
+    log("Project:", projectPath)
+    log("Setup:", setupScript)
+
+    if (!fs.existsSync(projectPath)) {
+        fail("Project directory does not exist", projectPath)
+        return
+    }
+
+    if (!fs.existsSync(setupScript)) {
+        fail("Setup script does not exist", setupScript)
+        return
+    }
+
+    let setupResult
+
+    try {
+        setupResult = await runSetup()
+    } catch (err) {
+        fail("Environment setup crashed", err)
+        return
+    }
+
+    if (!setupResult?.success) {
+        if (setupResult?.reason === "unsupported-node") {
+            const { openNodeErrorPage } = await import("./browser.mjs")
+
+            openNodeErrorPage(setupResult.version)
+        }
+
+        fail("React Press could not prepare the required environment")
+
+        return
+    }
+
+    try {
+        checkExistingVite(setupResult.node)
+    } catch (err) {
+        fail("Failed to start Vite", err)
+    }
+}
+
+main().catch((err) => {
+    error("Unhandled React Press Launcher error")
+
+    error(err)
+
+    keepAlive()
+})

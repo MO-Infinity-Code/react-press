@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process"
 import { log, error } from "./logger.mjs"
 import { state } from "./state.mjs"
-import { url } from "./constants.mjs"
+import { url, nodeErrorPage } from "./constants.mjs"
 
 function openBrowser() {
     if (state.browserOpened) {
@@ -20,11 +20,31 @@ function openBrowser() {
 
     browser.on("error", (err) => {
         error("Failed to open browser")
+
         error(err)
+
         state.browserOpened = false
     })
 
     browser.unref()
 }
 
-export { openBrowser }
+function openNodeErrorPage(detectedVersion) {
+    const separator = nodeErrorPage.includes("?") ? "&" : "?"
+
+    const encodedVersion = encodeURIComponent(detectedVersion || "Unknown")
+
+    const page = `file:///${nodeErrorPage.replace(/\\/g, "/")}${separator}detected=${encodedVersion}`
+
+    log("Opening Node.js error page:", page)
+
+    const browser = spawn("cmd.exe", ["/c", "start", "", page], {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true
+    })
+
+    browser.unref()
+}
+
+export { openBrowser, openNodeErrorPage }
