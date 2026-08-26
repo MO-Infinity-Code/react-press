@@ -6,10 +6,10 @@ Windows executable using Node.js SEA.
 ## Overview
 
 React Press Launcher is responsible for preparing the local React Press environment, starting the
-Vite development server when required, and opening the React Press application in the default
-browser.
+Vite development server when required, waiting for the application to become available, and opening
+the default browser.
 
-The launcher follows this workflow:
+The startup flow is:
 
 ```text
 React Press Launcher
@@ -25,8 +25,8 @@ Wait for localhost:3000
 Open Browser
 ```
 
-The launcher is designed so that the user does not need to manually run npm commands for the normal
-React Press startup process.
+The launcher is designed to handle the local startup process automatically without requiring the
+user to manually execute the normal development commands.
 
 ## Requirements
 
@@ -37,21 +37,21 @@ The development machine should have:
 - npm
 - Git
 
-Verify Node.js:
+Check Node.js:
 
 ```bash
 node --version
 ```
 
-Verify npm:
+Check npm:
 
 ```bash
 npm --version
 ```
 
-The project does not require a global installation of esbuild.
+A global installation of esbuild is not required.
 
-The build process uses:
+The launcher is bundled using:
 
 ```bash
 npx esbuild
@@ -59,21 +59,21 @@ npx esbuild
 
 ## Project Structure
 
-The launcher source is separated from the generated launcher bundle.
+The current launcher structure is:
 
 ```text
 react-press/
 │
 ├── launcher/
+│   ├── browser.mjs
+│   ├── constants.mjs
+│   ├── launcher.js
+│   ├── logger.mjs
 │   ├── main.js
-│   ├── browser-manager.js
-│   ├── config.js
-│   ├── logger.js
-│   ├── path-manager.js
-│   ├── process-utils.js
-│   ├── setup-manager.js
-│   ├── vite-manager.js
-│   └── launcher.js
+│   ├── setup.mjs
+│   ├── state.mjs
+│   ├── utils.mjs
+│   └── viteManager.mjs
 │
 ├── scripts/
 │   └── setup-environment.js
@@ -86,6 +86,7 @@ react-press/
 │   └── react-press/
 │       ├── package.json
 │       ├── index.html
+│       ├── vite.config.ts
 │       ├── src/
 │       ├── public/
 │       └── ...
@@ -96,25 +97,55 @@ react-press/
 └── package.json
 ```
 
-## Launcher Source
+## Launcher Modules
 
-The main launcher source file is:
+The launcher source is divided into focused modules.
 
-```text
-launcher/main.js
-```
+### `main.js`
 
-The generated bundled launcher is:
+The main source entry point for the launcher.
 
-```text
-launcher/launcher.js
-```
+It coordinates the launcher startup flow and connects the different modules.
 
-The source files imported by `main.js` are bundled together by esbuild.
+### `launcher.js`
 
-## Shared React Environment
+The generated bundled launcher.
 
-React Press keeps React environments separately.
+This file is produced by esbuild from `main.js` and its imported modules.
+
+It should normally be treated as a generated file.
+
+### `browser.mjs`
+
+Responsible for opening the React Press development URL in the default browser.
+
+### `constants.mjs`
+
+Contains shared constants used throughout the launcher.
+
+### `logger.mjs`
+
+Provides the logging functionality used by the launcher.
+
+### `setup.mjs`
+
+Responsible for environment setup operations before Vite starts.
+
+### `state.mjs`
+
+Stores and manages launcher runtime state.
+
+### `utils.mjs`
+
+Contains shared utility functions used by multiple launcher modules.
+
+### `viteManager.mjs`
+
+Responsible for detecting, starting, and monitoring the Vite development server.
+
+## React Environments
+
+React Press stores React environments separately by version.
 
 Example:
 
@@ -127,14 +158,15 @@ react/
     └── node_modules/
 ```
 
-Each environment represents the dependency set associated with a specific React version.
+Each environment represents the dependency tree associated with a specific React version.
 
-The goal is to avoid downloading and storing the same dependency tree independently for every
-project.
+The environment is shared between projects that use the same React version.
 
-## Project Structure
+The goal is to avoid downloading the same dependency tree repeatedly for every project.
 
-Projects remain independent and keep their own configuration.
+## Projects
+
+Each generated project maintains its own project configuration.
 
 Example:
 
@@ -149,11 +181,11 @@ projects/
     └── public/
 ```
 
-The project's configuration is kept separate from the shared React environment.
+Project-level configuration remains separate from the shared React environment.
 
 ## Junctions
 
-On Windows, React Press can use a Junction to expose the shared environment to a project.
+On Windows, React Press can expose the shared environment through a Junction.
 
 Example:
 
@@ -165,44 +197,42 @@ react/19.2.8/node_modules
 
 The Junction does not create a second physical copy of the dependency files.
 
-It allows Node.js and development tools such as Vite and TypeScript to resolve packages through the
-expected project-level `node_modules` path.
+It allows Node.js and development tools to resolve dependencies through the expected project-level
+`node_modules` path.
 
 ## Environment Setup
 
-The environment setup script is responsible for preparing the project's dependency environment.
+Environment preparation is handled by the launcher setup layer.
 
-Current script:
+The current environment setup script is:
 
 ```text
 scripts/setup-environment.js
 ```
 
-The launcher executes this process before checking or starting Vite.
-
-The setup workflow is:
+The setup flow is:
 
 ```text
 Launcher
     ↓
-setup-environment.js
+Environment Setup
     ↓
-Check shared environment
+Check Shared Environment
     ↓
 Create Junction if required
 ```
 
-If the Junction already exists, the setup process leaves it unchanged.
+If the required Junction already exists, it should not be recreated unnecessarily.
 
 ## Running the Launcher During Development
 
-The launcher can be executed directly from the project root:
+The source launcher is started from the project root:
 
 ```bash
 node launcher/main.js
 ```
 
-The launcher will:
+The expected startup flow is:
 
 ```text
 Run Environment Setup
@@ -230,9 +260,7 @@ http://localhost:3000/
 
 ## Bundling the Launcher
 
-Before creating the standalone executable, the launcher source must be bundled.
-
-The source entry point is:
+The launcher source entry point is:
 
 ```text
 launcher/main.js
@@ -256,7 +284,7 @@ Run:
 npx esbuild ..\..\launcher\main.js --bundle --platform=node --format=esm --outfile=..\..\launcher\launcher.js
 ```
 
-This command performs the following:
+The bundling process is:
 
 ```text
 launcher/main.js
@@ -266,56 +294,37 @@ launcher/main.js
 launcher/launcher.js
 ```
 
-The generated `launcher.js` contains the launcher source and its imported modules in a single
-bundled file.
+esbuild automatically includes the modules imported by `main.js`.
 
-Do not use the source file as the output file.
-
-Correct:
+This includes modules such as:
 
 ```text
-Input:
-launcher/main.js
-
-Output:
-launcher/launcher.js
+browser.mjs
+constants.mjs
+logger.mjs
+setup.mjs
+state.mjs
+utils.mjs
+viteManager.mjs
 ```
 
-Incorrect:
+Do not use `launcher/launcher.js` as the source entry point for the bundle.
+
+The source entry point is always:
 
 ```text
-Input:
-launcher/main.js
-
-Output:
 launcher/main.js
 ```
 
-## Building the SEA Executable
-
-After creating:
+The generated output is:
 
 ```text
 launcher/launcher.js
 ```
-
-return to the React Press root:
-
-```bash
-cd ..\..
-```
-
-Then build the executable:
-
-```bash
-node --build-sea sea-config.json
-```
-
-The generated executable will be placed according to the `sea-config.json` configuration.
 
 ## SEA Configuration
 
-The `sea-config.json` file should use the generated launcher bundle as the main entry point:
+The `sea-config.json` file should reference the generated launcher bundle:
 
 ```json
 {
@@ -326,7 +335,27 @@ The `sea-config.json` file should use the generated launcher bundle as the main 
 }
 ```
 
-The build flow is therefore:
+## Building the Executable
+
+After generating `launcher/launcher.js`, return to the React Press root:
+
+```bash
+cd ..\..
+```
+
+Then run:
+
+```bash
+node --build-sea sea-config.json
+```
+
+The generated executable will be:
+
+```text
+dist/react-press.exe
+```
+
+The complete build pipeline is:
 
 ```text
 launcher/main.js
@@ -340,9 +369,9 @@ Node.js SEA
 dist/react-press.exe
 ```
 
-## Building with npm Scripts
+## Automated Build
 
-The process can be automated through npm scripts in the root `package.json`.
+The build can be automated using npm scripts.
 
 Example:
 
@@ -355,7 +384,7 @@ Example:
 }
 ```
 
-Then the entire build can be performed with:
+Then run:
 
 ```bash
 npm run build
@@ -363,20 +392,20 @@ npm run build
 
 ## Testing the Executable
 
-After building:
+After a successful build:
 
 ```text
 dist/
 └── react-press.exe
 ```
 
-Run it:
+Run:
 
 ```powershell
 .\dist\react-press.exe
 ```
 
-The expected startup flow is:
+Expected workflow:
 
 ```text
 react-press.exe
@@ -396,12 +425,12 @@ Default Browser
 
 ### Resource Busy or Locked
 
-If Node SEA reports that a resource is busy or locked, make sure no previous `react-press.exe`
-process is still running.
+If Node.js SEA reports that a resource is busy or locked, close any running `react-press.exe`
+process before rebuilding.
 
-Stop any running Vite process before rebuilding when necessary.
+Also stop any running Vite process when necessary.
 
-### esbuild Cannot Resolve main.js
+### esbuild Cannot Resolve `main.js`
 
 Make sure the command is executed from:
 
@@ -409,7 +438,7 @@ Make sure the command is executed from:
 react-press\projects\react-press
 ```
 
-Verify the source file exists:
+Verify the source file:
 
 ```powershell
 Test-Path ..\..\launcher\main.js
@@ -427,66 +456,31 @@ Then run:
 npx esbuild ..\..\launcher\main.js --bundle --platform=node --format=esm --outfile=..\..\launcher\launcher.js
 ```
 
-### Vite Is Not Recognized
+### `vite` Is Not Recognized
 
-If you receive:
+If the launcher reports:
 
 ```text
 vite is not recognized
 ```
 
-verify that the React environment contains Vite and that the project can resolve the shared
+verify that the selected React environment contains Vite and that the project can resolve its shared
 dependencies.
 
 ### Node.js Version Warning
 
-Check the Node.js version:
+Check the installed Node.js version:
 
 ```bash
 node --version
 ```
 
-The Node.js version used by the launcher and Vite must satisfy the requirements of the installed
-Vite version.
-
-## Launcher Modules
-
-The launcher is intentionally divided into multiple modules.
-
-```text
-launcher/
-├── main.js
-├── launcher.js
-├── config.js
-├── logger.js
-├── path-manager.js
-├── process-utils.js
-├── setup-manager.js
-├── vite-manager.js
-└── browser-manager.js
-```
-
-Responsibilities:
-
-| File                 | Responsibility              |
-| -------------------- | --------------------------- |
-| `main.js`            | Launcher source entry point |
-| `launcher.js`        | Generated bundled launcher  |
-| `config.js`          | Application configuration   |
-| `logger.js`          | Logging                     |
-| `path-manager.js`    | Path resolution             |
-| `process-utils.js`   | Process utilities           |
-| `setup-manager.js`   | Environment setup           |
-| `vite-manager.js`    | Vite detection and startup  |
-| `browser-manager.js` | Browser launching           |
-
-`launcher.js` should be treated as a generated file when it is produced by esbuild.
-
-The source code that should normally be edited is `main.js` and the supporting launcher modules.
+The Node.js version used by the launcher and the Vite development server must satisfy the
+requirements of the installed Vite version.
 
 ## Development Workflow
 
-The recommended development workflow is:
+The recommended workflow is:
 
 ```text
 Modify Launcher Source
@@ -514,7 +508,7 @@ Bundle:
 npx esbuild ..\..\launcher\main.js --bundle --platform=node --format=esm --outfile=..\..\launcher\launcher.js
 ```
 
-Build the executable:
+Build:
 
 ```bash
 node --build-sea sea-config.json
@@ -526,11 +520,25 @@ Test:
 .\dist\react-press.exe
 ```
 
+## Launcher Responsibilities
+
+| File              | Responsibility                                        |
+| ----------------- | ----------------------------------------------------- |
+| `main.js`         | Launcher source entry point and startup orchestration |
+| `launcher.js`     | Generated esbuild bundle                              |
+| `browser.mjs`     | Browser launching                                     |
+| `constants.mjs`   | Shared constants                                      |
+| `logger.mjs`      | Logging                                               |
+| `setup.mjs`       | Environment setup                                     |
+| `state.mjs`       | Runtime state                                         |
+| `utils.mjs`       | Shared utilities                                      |
+| `viteManager.mjs` | Vite detection, startup, and monitoring               |
+
 ## Future Architecture
 
-The launcher is the foundation for React Press's local environment management system.
+The launcher is the foundation for React Press local environment management.
 
-Future components may include:
+Future management layers can include:
 
 ```text
 Node Version Manager
