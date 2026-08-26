@@ -1,39 +1,40 @@
 # React Press Launcher — دليل المطور
 
 يوضح هذا الدليل طريقة تطوير واختبار وتجميع وبناء React Press Launcher وتحويله إلى ملف تنفيذي مستقل
-بصيغة `.exe` على Windows.
+بصيغة `.exe` باستخدام Node.js SEA.
 
 ## نظرة عامة
 
-React Press Launcher مسؤول عن تشغيل بيئة React Press محليًا.
+React Press Launcher مسؤول عن تجهيز بيئة React Press المحلية، والتأكد من تشغيل Vite، وتشغيله عند
+الحاجة، ثم فتح React Press في المتصفح الافتراضي.
 
-عند تشغيل الـ Launcher تتم العملية بالترتيب التالي:
+دورة التشغيل:
 
 ```text
-ReactPress.exe
-      ↓
+React Press Launcher
+        ↓
 تجهيز البيئة
-      ↓
+        ↓
 فحص Vite
-      ↓
-تشغيل Vite إذا لم يكن يعمل
-      ↓
+        ↓
+تشغيل Vite إذا لزم الأمر
+        ↓
 انتظار localhost:3000
-      ↓
+        ↓
 فتح المتصفح
 ```
 
-الهدف من الـ Launcher هو أن يتعامل المستخدم مع React Press فقط، بينما تتم إدارة Node.js وnpm وVite
-والـ environments في الخلفية.
+الهدف هو أن تتم العمليات المتعلقة بـ Node.js وnpm وVite والـ environments في الخلفية، بينما يتعامل
+المستخدم مع React Press فقط.
 
 ## المتطلبات
 
 يجب أن يتوفر على جهاز التطوير:
 
+- Windows
 - Node.js 20.19+ أو 22.12+
 - npm
-- Windows
-- الوصول إلى ملفات مصدر React Press
+- Git
 
 للتأكد من إصدار Node.js:
 
@@ -47,7 +48,7 @@ node --version
 npm --version
 ```
 
-لا تحتاج إلى تثبيت esbuild بشكل Global.
+لا تحتاج إلى تثبيت `esbuild` بشكل Global.
 
 يتم استخدام:
 
@@ -55,28 +56,25 @@ npm --version
 npx esbuild
 ```
 
-أثناء عملية البناء.
+أثناء عملية بناء الـ Launcher.
 
 ## هيكل المشروع
 
-البنية الحالية للـ Launcher:
+هيكل الـ Launcher الحالي:
 
 ```text
 react-press/
 │
-├── dist/
-│   ├── bundle.js
-│   └── react-press.exe
-│
 ├── launcher/
-│   ├── launcher.js
+│   ├── main.js
 │   ├── browser-manager.js
 │   ├── config.js
 │   ├── logger.js
 │   ├── path-manager.js
 │   ├── process-utils.js
 │   ├── setup-manager.js
-│   └── vite-manager.js
+│   ├── vite-manager.js
+│   └── launcher.js
 │
 ├── scripts/
 │   └── setup-environment.js
@@ -93,43 +91,31 @@ react-press/
 │       ├── public/
 │       └── ...
 │
+├── dist/
+│
 ├── sea-config.json
 └── package.json
 ```
 
-## مسؤوليات الـ Launcher
+## ملفات الـ Launcher
 
-الـ Launcher هو الطبقة الرئيسية المسؤولة عن تنسيق عملية التشغيل.
-
-ترتيب المسؤوليات:
+ملف الدخول الأساسي للمصدر هو:
 
 ```text
-تجهيز البيئة
-      ↓
-فحص Vite
-      ↓
-تشغيل Vite
-      ↓
-التأكد من جاهزية Vite
-      ↓
-فتح المتصفح
+launcher/main.js
 ```
 
-المشروع الفعلي موجود داخل:
+أما الملف الناتج من عملية التجميع فهو:
 
 ```text
-projects/react-press/
+launcher/launcher.js
 ```
 
-أما الـ environment المشتركة الخاصة بإصدار React فتوجد داخل:
-
-```text
-react/19.2.8/
-```
+يقوم `esbuild` بتجميع `main.js` وجميع الـ modules التي يستوردها في ملف واحد.
 
 ## بيئات React المشتركة
 
-يمكن أن يكون لكل إصدار React بيئة مستقلة.
+يمكن أن يحتوي React Press على أكثر من Environment حسب إصدار React.
 
 مثال:
 
@@ -142,20 +128,32 @@ react/
     └── node_modules/
 ```
 
-كل Environment تمثل مجموعة الـ dependencies المرتبطة بإصدار محدد من React.
+كل Environment تمثل مجموعة الـ dependencies المرتبطة بإصدار React محدد.
 
-إذا كان المشروع يستخدم React 19.2.8، فيستخدم Environment الخاصة بهذا الإصدار:
+الهدف هو منع تنزيل وتخزين نفس مجموعة الـ dependencies لكل مشروع بشكل مستقل.
+
+## المشاريع
+
+كل مشروع يحتفظ بإعداداته الخاصة.
+
+مثال:
 
 ```text
-react/19.2.8/node_modules/
+projects/
+└── react-press/
+    ├── package.json
+    ├── vite.config.ts
+    ├── tsconfig.json
+    ├── index.html
+    ├── src/
+    └── public/
 ```
 
-الهدف هو منع تحميل وتخزين نفس شجرة الـ dependencies لكل مشروع بشكل منفصل.
+يظل إعداد المشروع منفصلًا عن الـ React Environment المشتركة.
 
-## الـ Junctions
+## Junctions
 
-يتم استخدام Windows Junction لإتاحة الـ shared environment للمشروع من خلال مسار `node_modules`
-المتوقع.
+يستخدم React Press نظام Windows Junction لإتاحة الـ Environment المشتركة للمشروع.
 
 مثال:
 
@@ -165,43 +163,41 @@ projects/react-press/node_modules
 react/19.2.8/node_modules
 ```
 
-الـ Junction لا ينشئ نسخة ثانية من الملفات.
+الـ Junction لا ينشئ نسخة ثانية من ملفات الـ dependencies.
 
-إنما يسمح لـ Node.js وVite وTypeScript والأدوات المرتبطة بها بالوصول إلى الـ packages من المسار
+بل يسمح لـ Node.js وVite وTypeScript والأدوات الأخرى بالوصول إلى الـ packages من مسار `node_modules`
 المتوقع داخل المشروع.
 
-## قاعدة مهمة للـ Dependencies
+## تجهيز الـ Environment
 
-إعدادات المشروع تكون داخل المشروع.
-
-أما الـ dependencies المشتركة فتكون داخل Environment.
-
-مثال:
+سكريبت تجهيز البيئة الحالي:
 
 ```text
-react/19.2.8/
-├── package.json
-└── node_modules/
+scripts/setup-environment.js
 ```
 
-بينما:
+ويتم تشغيله قبل فحص Vite.
+
+دورة تجهيز البيئة:
 
 ```text
-projects/client-project/
-├── package.json
-├── src/
-└── ...
+Launcher
+    ↓
+setup-environment.js
+    ↓
+فحص الـ Environment المشتركة
+    ↓
+إنشاء Junction عند الحاجة
 ```
 
-يجب أن تتم إدارة الـ shared dependencies من خلال Environment Manager بدل تنفيذ عمليات تثبيت يدوية
-داخل المشروع.
+إذا كان الـ Junction موجودًا بالفعل، يتم تركه كما هو.
 
 ## تشغيل Launcher أثناء التطوير
 
-من جذر المشروع:
+من مجلد المشروع:
 
 ```bash
-node launcher/launcher.js
+node launcher/main.js
 ```
 
 سيقوم الـ Launcher بالآتي:
@@ -211,7 +207,7 @@ node launcher/launcher.js
         ↓
 فحص localhost:3000
         ↓
-إذا كان Vite يعمل
+إذا كان Vite يعمل بالفعل
         ↓
 فتح المتصفح
 
@@ -230,11 +226,19 @@ npm run dev
 http://localhost:3000/
 ```
 
-## إنشاء Bundle للـ Launcher
+## تجميع Launcher باستخدام esbuild
 
-ملفات الـ Launcher مقسمة إلى عدة Modules.
+مصدر الـ Launcher الأساسي هو:
 
-قبل بناء ملف `.exe`، يجب تجميعها في ملف JavaScript واحد باستخدام `esbuild`.
+```text
+launcher/main.js
+```
+
+والناتج المطلوب:
+
+```text
+launcher/launcher.js
+```
 
 انتقل إلى مجلد مشروع React:
 
@@ -245,26 +249,41 @@ cd react-press\projects\react-press
 ثم نفذ:
 
 ```bash
-npx esbuild ..\..\launcher\launcher.js --bundle --platform=node --format=esm --outfile=..\..\dist\bundle.js
+npx esbuild ..\..\launcher\main.js --bundle --platform=node --format=esm --outfile=..\..\launcher\launcher.js
 ```
 
-الناتج:
+دورة التجميع:
 
 ```text
-dist/
-└── bundle.js
+launcher/main.js
+        ↓
+      esbuild
+        ↓
+launcher/launcher.js
 ```
 
-يقوم `esbuild` بتجميع ملف `launcher.js` وجميع الملفات التي يستوردها، مثل:
+يحتوي `launcher/launcher.js` على `main.js` وجميع الـ modules المستوردة منه بعد تجميعها في ملف واحد.
+
+لا تستخدم ملف المصدر كملف إخراج.
+
+الصحيح:
 
 ```text
-logger.js
-config.js
-path-manager.js
-process-utils.js
-setup-manager.js
-vite-manager.js
-browser-manager.js
+Input:
+launcher/main.js
+
+Output:
+launcher/launcher.js
+```
+
+والخطأ:
+
+```text
+Input:
+launcher/main.js
+
+Output:
+launcher/main.js
 ```
 
 ## بناء ملف EXE باستخدام SEA
@@ -272,7 +291,7 @@ browser-manager.js
 بعد إنشاء:
 
 ```text
-dist/bundle.js
+launcher/launcher.js
 ```
 
 ارجع إلى جذر React Press:
@@ -281,51 +300,55 @@ dist/bundle.js
 cd ..\..
 ```
 
-ثم نفذ:
+ثم:
 
 ```bash
 node --build-sea sea-config.json
 ```
 
-سيتم إنشاء الملف التنفيذي حسب إعدادات SEA.
-
-الناتج المتوقع:
-
-```text
-dist/
-├── bundle.js
-└── react-press.exe
-```
+وسيتم إنشاء ملف `.exe` وفقًا لإعدادات SEA.
 
 ## إعداد SEA
 
-يجب أن يشير `sea-config.json` إلى الـ bundle:
+يجب أن يكون `sea-config.json` بهذا الشكل:
 
 ```json
 {
-    "main": "dist/bundle.js",
+    "main": "launcher/launcher.js",
     "mainFormat": "module",
     "output": "dist/react-press.exe",
     "disableExperimentalSEAWarning": true
 }
 ```
 
+دورة البناء:
+
+```text
+launcher/main.js
+        ↓
+esbuild
+        ↓
+launcher/launcher.js
+        ↓
+Node.js SEA
+        ↓
+dist/react-press.exe
+```
+
 ## أتمتة عملية البناء
 
-يمكن اختصار عملية البناء باستخدام npm scripts.
-
-مثال:
+يمكن إضافة scripts إلى `package.json` في جذر المشروع:
 
 ```json
 {
     "scripts": {
-        "bundle": "esbuild launcher/launcher.js --bundle --platform=node --format=esm --outfile=dist/bundle.js",
+        "bundle": "esbuild launcher/main.js --bundle --platform=node --format=esm --outfile=launcher/launcher.js",
         "build": "npm run bundle && node --build-sea sea-config.json"
     }
 }
 ```
 
-بعدها:
+بعد ذلك يمكن تنفيذ العملية بالكامل من خلال:
 
 ```bash
 npm run build
@@ -333,23 +356,23 @@ npm run build
 
 ## اختبار ملف EXE
 
-بعد نجاح عملية البناء:
+بعد نجاح البناء:
 
 ```text
 dist/
 └── react-press.exe
 ```
 
-يمكن تشغيله من PowerShell:
+يمكن تشغيله:
 
 ```powershell
 .\dist\react-press.exe
 ```
 
-المفترض أن تكون دورة التشغيل:
+ودورة التشغيل المتوقعة:
 
 ```text
-React Press Launcher
+react-press.exe
         ↓
 تجهيز البيئة
         ↓
@@ -366,7 +389,7 @@ localhost:3000
 
 ### Resource Busy أو Locked
 
-إذا ظهرت رسالة تفيد بأن Resource قيد الاستخدام أو مقفولة، أغلق أي نسخة تعمل من:
+إذا ظهر خطأ يفيد بأن Resource قيد الاستخدام أو مقفولة، أغلق أي نسخة تعمل من:
 
 ```text
 react-press.exe
@@ -376,49 +399,60 @@ react-press.exe
 
 وقد تحتاج أيضًا إلى إيقاف أي عملية Vite تعمل حاليًا.
 
-### مشاكل esbuild
+### esbuild لا يستطيع العثور على main.js
 
-تأكد من تنفيذ الأمر من:
+تأكد من أنك تعمل من:
 
 ```text
 react-press\projects\react-press
 ```
 
+تحقق من وجود الملف:
+
+```powershell
+Test-Path ..\..\launcher\main.js
+```
+
+المفترض أن تكون النتيجة:
+
+```text
+True
+```
+
 ثم نفذ:
 
 ```bash
-npx esbuild ..\..\launcher\launcher.js --bundle --platform=node --format=esm --outfile=..\..\dist\bundle.js
+npx esbuild ..\..\launcher\main.js --bundle --platform=node --format=esm --outfile=..\..\launcher\launcher.js
 ```
-
-وتأكد أن المسارات تتوافق مع هيكل المشروع.
 
 ### Vite غير معروف
 
-إذا ظهرت:
+إذا ظهرت الرسالة:
 
 ```text
 vite is not recognized
 ```
 
-فتأكد من أن Environment تحتوي على Vite وأن المشروع يستطيع الوصول إلى الـ shared `node_modules`.
+فتأكد من أن Environment الخاصة بإصدار React تحتوي على Vite، وأن المشروع يستطيع الوصول إلى الـ shared
+`node_modules`.
 
 ### تحذير إصدار Node.js
 
-تحقق من الإصدار:
+تحقق من إصدار Node.js:
 
 ```bash
 node --version
 ```
 
-يجب أن يكون إصدار Node.js المستخدم لتشغيل الـ Launcher وVite متوافقًا مع إصدار Vite المستخدم في
-المشروع.
+يجب أن يكون إصدار Node.js المستخدم لتشغيل Launcher وVite متوافقًا مع إصدار Vite الموجود في المشروع.
 
 ## تقسيم ملفات Launcher
 
-تم تقسيم Launcher إلى Modules منفصلة لتسهيل التطوير والصيانة.
+تم تقسيم Launcher إلى Modules منفصلة لتسهيل التطوير والصيانة:
 
 ```text
 launcher/
+├── main.js
 ├── launcher.js
 ├── config.js
 ├── logger.js
@@ -431,60 +465,69 @@ launcher/
 
 المسؤوليات:
 
-| الملف                | المسؤولية                 |
-| -------------------- | ------------------------- |
-| `launcher.js`        | تنسيق وتشغيل النظام       |
-| `config.js`          | إعدادات التطبيق           |
-| `logger.js`          | تسجيل الأحداث             |
-| `path-manager.js`    | تحديد المسارات            |
-| `process-utils.js`   | أدوات التعامل مع العمليات |
-| `setup-manager.js`   | تجهيز البيئة              |
-| `vite-manager.js`    | فحص وتشغيل Vite           |
-| `browser-manager.js` | فتح المتصفح               |
+| الملف                | المسؤولية               |
+| -------------------- | ----------------------- |
+| `main.js`            | نقطة دخول مصدر Launcher |
+| `launcher.js`        | الملف الناتج من esbuild |
+| `config.js`          | إعدادات التطبيق         |
+| `logger.js`          | تسجيل الأحداث           |
+| `path-manager.js`    | تحديد المسارات          |
+| `process-utils.js`   | أدوات العمليات          |
+| `setup-manager.js`   | تجهيز البيئة            |
+| `vite-manager.js`    | فحص وتشغيل Vite         |
+| `browser-manager.js` | فتح المتصفح             |
 
-هذا التقسيم يجعل تعديل كل جزء مستقلًا أسهل، ويمنع تضخم ملف Launcher الرئيسي.
+يجب اعتبار `launcher.js` ملفًا ناتجًا يتم توليده بواسطة esbuild.
+
+التعديلات الطبيعية تتم على `main.js` والـ modules المساعدة، ثم يتم إعادة إنشاء `launcher.js`.
 
 ## دورة التطوير
 
 الدورة المقترحة:
 
 ```text
-تعديل Launcher
-      ↓
+تعديل Source Code
+        ↓
 تشغيل Launcher محليًا
-      ↓
+        ↓
 اختبار React Press
-      ↓
+        ↓
 Bundle باستخدام esbuild
-      ↓
+        ↓
 Build باستخدام SEA
-      ↓
+        ↓
 اختبار react-press.exe
 ```
 
-الأوامر:
+تشغيل المصدر:
 
 ```bash
-node launcher/launcher.js
+node launcher/main.js
 ```
 
-ثم:
+تجميع الـ Launcher:
 
 ```bash
-npm run build
+npx esbuild ..\..\launcher\main.js --bundle --platform=node --format=esm --outfile=..\..\launcher\launcher.js
 ```
 
-ثم:
+بناء الـ EXE:
+
+```bash
+node --build-sea sea-config.json
+```
+
+اختبار الـ EXE:
 
 ```powershell
 .\dist\react-press.exe
 ```
 
-## التطوير المستقبلي
+## المعمارية المستقبلية
 
-الـ Launcher هو الأساس الذي سيتم بناء إدارة React Press المحلية عليه.
+الـ Launcher هو الأساس الذي سيتم بناء نظام إدارة React Press المحلي عليه.
 
-المراحل المستقبلية تشمل:
+المراحل المستقبلية يمكن أن تشمل:
 
 ```text
 Node Version Manager
@@ -500,7 +543,7 @@ Plugin Manager
 Project Manager
 ```
 
-الهدف النهائي هو أن يتعامل المستخدم مع React Press فقط، بينما يقوم النظام بإدارة:
+الهدف النهائي هو أن يقوم React Press بإدارة:
 
 ```text
 Node.js
@@ -514,7 +557,7 @@ Themes
 Plugins
 ```
 
-في الخلفية بشكل تلقائي.
+بشكل تلقائي في الخلفية، مع إبقاء تجربة المستخدم بسيطة.
 
 ## المراجع
 

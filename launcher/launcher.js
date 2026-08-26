@@ -1,8 +1,8 @@
-// launcher/main.js
+// ../../launcher/main.js
 import path2 from "node:path";
 import fs from "node:fs";
 
-// launcher/logger.mjs
+// ../../launcher/logger.mjs
 var logPrefix = () => `[${(/* @__PURE__ */ new Date()).toISOString()}] MAIN`;
 function log(...args) {
   console.log(logPrefix(), ...args);
@@ -11,7 +11,7 @@ function error(...args) {
   console.error(logPrefix(), ...args);
 }
 
-// launcher/constants.mjs
+// ../../launcher/constants.mjs
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 var port = 3e3;
@@ -23,7 +23,7 @@ var root = isSea ? path.resolve(path.dirname(process.execPath), "..") : path.res
 var projectPath = path.join(root, "projects", "react-press");
 var setupScript = path.join(root, "scripts", "setup-environment.mjs");
 
-// launcher/utils.mjs
+// ../../launcher/utils.mjs
 import http from "node:http";
 function waitBeforeExit(code = 1) {
   if (isSea) {
@@ -66,19 +66,19 @@ function checkPort(port2, callback) {
   });
 }
 
-// launcher/setup.mjs
+// ../../launcher/setup.mjs
 import { spawn as spawn3, execFileSync } from "node:child_process";
 
-// launcher/viteManager.mjs
+// ../../launcher/viteManager.mjs
 import { spawn as spawn2 } from "node:child_process";
 
-// launcher/state.mjs
+// ../../launcher/state.mjs
 var state = {
   browserOpened: false,
   viteProcess: null
 };
 
-// launcher/browser.mjs
+// ../../launcher/browser.mjs
 import { spawn } from "node:child_process";
 function openBrowser() {
   if (state.browserOpened) {
@@ -99,7 +99,7 @@ function openBrowser() {
   browser.unref();
 }
 
-// launcher/viteManager.mjs
+// ../../launcher/viteManager.mjs
 function checkExistingVite() {
   log("Checking Vite...");
   checkPort(port, (exists) => {
@@ -153,7 +153,7 @@ function waitForVite() {
   }, 300);
 }
 
-// launcher/setup.mjs
+// ../../launcher/setup.mjs
 function runSetup() {
   let nodeCommand = process.execPath;
   if (isSea) {
@@ -187,7 +187,7 @@ function runSetup() {
   });
 }
 
-// launcher/main.js
+// ../../launcher/main.js
 log("========== React Press Launcher ==========");
 log("SEA:", isSea);
 log("Executable:", process.execPath);
