@@ -77,11 +77,11 @@ Windows executable using Node.js SEA.
 
 ## Overview
 
-The launcher prepares the React Press environment, checks Vite, starts it if needed, then opens the
-browser.
+The launcher prepares the React Press environment, checks Rsbuild, starts it if needed, then opens
+the browser.
 
 ```text
-Launcher → Environment Setup → Install/Start MongoDB → Check Vite → Start Vite (if needed) → Wait for localhost:3000 → Open Browser
+Launcher → Environment Setup → Install/Start MongoDB → Check Rsbuild → Start Rsbuild (if needed) → Wait for localhost:3000 → Open Browser
 ```
 
 ## Requirements
@@ -110,10 +110,11 @@ react-press/
 │   ├── launcher.js       ← generated file
 │   ├── logger.mjs
 │   ├── main.js            ← entry point
+│   ├── node-error.html
+│   ├── rsbuildManager.mjs
 │   ├── setup.mjs
 │   ├── state.mjs
-│   ├── utils.mjs
-│   └── viteManager.mjs
+│   └── utils.mjs
 ├── scripts/
 │   └── setup-environment.js
 ├── databases/
@@ -126,12 +127,12 @@ react-press/
 ├── projects/
 │   └── react-press/
 │       ├── package.json
-│       ├── vite.config.ts
+│       ├── rsbuild.config.ts
 │       ├── src/
 │       └── public/
 ├── dist/
 ├── sea-config.json
-└── package.json
+└── Readme.md
 ```
 
 ## Launcher File Responsibilities
@@ -144,10 +145,11 @@ react-press/
 | `constants.mjs`       | Shared constants                            |
 | `databaseManager.mjs` | Installs and starts MongoDB and mongosh     |
 | `logger.mjs`          | Logging                                     |
+| `node-error.html`     | Node.js error page                          |
+| `rsbuildManager.mjs`  | Detects, starts, and monitors Rsbuild       |
 | `setup.mjs`           | Environment setup                           |
 | `state.mjs`           | Runtime state                               |
 | `utils.mjs`           | Shared utilities                            |
-| `viteManager.mjs`     | Detects, starts, and monitors Vite          |
 
 ## Shared React Environments (Junctions)
 
@@ -231,10 +233,10 @@ npm run build
 
 | Issue                        | Fix                                                                                                       |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Resource Busy / Locked       | Close any running `react-press.exe` or Vite process, then rebuild                                         |
+| Resource Busy / Locked       | Close any running `react-press.exe` or Rsbuild process, then rebuild                                      |
 | esbuild can't find `main.js` | Make sure you're in `projects\react-press`, run `Test-Path ..\..\launcher\main.js` (should return `True`) |
-| `vite is not recognized`     | Verify the version's environment includes Vite and the project's Junction is correctly linked             |
-| Node.js version warning      | Verify `node --version` is compatible with the installed Vite version                                     |
+| `rsbuild is not recognized`  | Verify the version's environment includes Rsbuild and the project's Junction is correctly linked          |
+| Node.js version warning      | Verify `node --version` is compatible with the installed Rsbuild version                                  |
 | `installer was not found`    | Confirm MongoDB and mongosh files exist with the exact expected filenames in `databases\progs\mongodb\`   |
 | `mongodb-service-missing`    | Check the disk-space message in the log — usually the root or system drive has less than 2.5 GB free      |
 
@@ -256,7 +258,7 @@ Node Version Manager → React Version Manager → Environment Manager → Theme
 
 - Node.js SEA: https://nodejs.org/api/single-executable-applications.html
 - Node.js Modules: https://nodejs.org/api/modules.html
-- Vite: https://vite.dev/guide/
+- Rsbuild: https://rsbuild.dev/guide/
 - esbuild: https://esbuild.github.io/
 - npm: https://docs.npmjs.com/
 - MongoDB Community Server: https://www.mongodb.com/try/download/community
