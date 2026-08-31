@@ -24,13 +24,64 @@ Windows executable using Node.js SEA.
 > Never install packages from inside `projects\react-press` or any other project that depends on the
 > shared environment — this breaks the environment structure.
 
+> **Important — MongoDB Community & mongosh**
+>
+> React Press needs MongoDB Community Server and the MongoDB Shell (`mongosh`) to run locally. Only
+> download these from MongoDB's official sources.
+>
+> **MongoDB Community Server 8.3.8** Official download page:
+> https://www.mongodb.com/try/download/community Select:
+>
+> - Version: `8.3.8`
+> - Platform: `Windows x64`
+> - Package: `msi`
+>
+> The file must be named exactly:
+>
+> ```text
+> mongodb-windows-x86_64-8.3.8-signed.msi
+> ```
+>
+> **MongoDB Shell 2.10.0** Official download page: https://www.mongodb.com/try/download/shell
+> Select:
+>
+> - Version: `2.10.0`
+> - Platform: `Windows x64`
+> - Package: `msi`
+>
+> The file must be named exactly:
+>
+> ```text
+> mongosh-2.10.0-x64.msi
+> ```
+>
+> MongoDB Community Server and `mongosh` ship as separate products on Windows, so each MSI must be
+> downloaded independently.
+>
+> Place both files exactly in:
+>
+> ```text
+> databases\progs\mongodb\
+> ```
+>
+> The code looks for these exact filenames (it does not scan the folder for "any MSI") — if the name
+> differs by even one character or version number, the launcher fails immediately with
+> `installer was not found`. To verify the name and location before running:
+>
+> ```powershell
+> Test-Path "databases\progs\mongodb\mongodb-windows-x86_64-8.3.8-signed.msi"
+> Test-Path "databases\progs\mongodb\mongosh-2.10.0-x64.msi"
+> ```
+>
+> Both must return `True`.
+
 ## Overview
 
 The launcher prepares the React Press environment, checks Vite, starts it if needed, then opens the
 browser.
 
 ```text
-Launcher → Environment Setup → Check Vite → Start Vite (if needed) → Wait for localhost:3000 → Open Browser
+Launcher → Environment Setup → Install/Start MongoDB → Check Vite → Start Vite (if needed) → Wait for localhost:3000 → Open Browser
 ```
 
 ## Requirements
@@ -39,6 +90,9 @@ Launcher → Environment Setup → Check Vite → Start Vite (if needed) → Wai
 - Node.js 20.19+ or 22.12+
 - npm
 - Git
+- MongoDB Community Server 8.3.8 (MSI) — placed in `databases\progs\mongodb\`
+- mongosh 2.10.0 (MSI) — placed in `databases\progs\mongodb\`
+- At least 2.5 GB free disk space for MongoDB, plus 0.2 GB for mongosh
 
 ```bash
 node --version
@@ -52,6 +106,7 @@ react-press/
 ├── launcher/
 │   ├── browser.mjs
 │   ├── constants.mjs
+│   ├── databaseManager.mjs
 │   ├── launcher.js       ← generated file
 │   ├── logger.mjs
 │   ├── main.js            ← entry point
@@ -61,6 +116,11 @@ react-press/
 │   └── viteManager.mjs
 ├── scripts/
 │   └── setup-environment.js
+├── databases/
+│   └── progs/
+│       └── mongodb/
+│           ├── mongodb-windows-x86_64-8.3.8-signed.msi
+│           └── mongosh-2.10.0-x64.msi
 ├── react/
 │   └── 19.2.8/node_modules/     ← Shared Environment
 ├── projects/
@@ -76,17 +136,18 @@ react-press/
 
 ## Launcher File Responsibilities
 
-| File              | Responsibility                              |
-| ----------------- | ------------------------------------------- |
-| `main.js`         | Entry point, orchestrates startup           |
-| `launcher.js`     | esbuild bundle output — never edit manually |
-| `browser.mjs`     | Opens the browser                           |
-| `constants.mjs`   | Shared constants                            |
-| `logger.mjs`      | Logging                                     |
-| `setup.mjs`       | Environment setup                           |
-| `state.mjs`       | Runtime state                               |
-| `utils.mjs`       | Shared utilities                            |
-| `viteManager.mjs` | Detects, starts, and monitors Vite          |
+| File                  | Responsibility                              |
+| --------------------- | ------------------------------------------- |
+| `main.js`             | Entry point, orchestrates startup           |
+| `launcher.js`         | esbuild bundle output — never edit manually |
+| `browser.mjs`         | Opens the browser                           |
+| `constants.mjs`       | Shared constants                            |
+| `databaseManager.mjs` | Installs and starts MongoDB and mongosh     |
+| `logger.mjs`          | Logging                                     |
+| `setup.mjs`           | Environment setup                           |
+| `state.mjs`           | Runtime state                               |
+| `utils.mjs`           | Shared utilities                            |
+| `viteManager.mjs`     | Detects, starts, and monitors Vite          |
 
 ## Shared React Environments (Junctions)
 
@@ -174,6 +235,8 @@ npm run build
 | esbuild can't find `main.js` | Make sure you're in `projects\react-press`, run `Test-Path ..\..\launcher\main.js` (should return `True`) |
 | `vite is not recognized`     | Verify the version's environment includes Vite and the project's Junction is correctly linked             |
 | Node.js version warning      | Verify `node --version` is compatible with the installed Vite version                                     |
+| `installer was not found`    | Confirm MongoDB and mongosh files exist with the exact expected filenames in `databases\progs\mongodb\`   |
+| `mongodb-service-missing`    | Check the disk-space message in the log — usually the root or system drive has less than 2.5 GB free      |
 
 ## Full Development Cycle
 
@@ -196,3 +259,5 @@ Node Version Manager → React Version Manager → Environment Manager → Theme
 - Vite: https://vite.dev/guide/
 - esbuild: https://esbuild.github.io/
 - npm: https://docs.npmjs.com/
+- MongoDB Community Server: https://www.mongodb.com/try/download/community
+- MongoDB Shell (mongosh): https://www.mongodb.com/try/download/shell
