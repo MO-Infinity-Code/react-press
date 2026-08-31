@@ -69,7 +69,7 @@ var init_state = __esm({
   "../../launcher/state.mjs"() {
     state = {
       browserOpened: false,
-      viteProcess: null
+      rsbuildProcess: null
     };
   }
 });
@@ -322,7 +322,7 @@ function runSetup() {
   });
 }
 
-// ../../launcher/viteManager.mjs
+// ../../launcher/rsbuildManager.mjs
 init_constants();
 init_logger();
 import { spawn as spawn3 } from "node:child_process";
@@ -372,24 +372,24 @@ function checkPort(port2, callback) {
   });
 }
 
-// ../../launcher/viteManager.mjs
+// ../../launcher/rsbuildManager.mjs
 init_state();
 init_browser();
-function checkExistingVite(node) {
+function checkExistingRsbuild(node) {
   checkPort(port, (exists) => {
     if (exists) {
-      log("Vite already running");
+      log("Rsbuild already running");
       openBrowser();
       return;
     }
-    log("Starting Vite...");
-    startVite(node);
+    log("Starting Rsbuild...");
+    startRsbuild(node);
   });
 }
-function startVite(node) {
+function startRsbuild(node) {
   const nodeDirectory = path2.dirname(node.executable);
   const npmCli = path2.join(nodeDirectory, "node_modules", "npm", "bin", "npm-cli.js");
-  state.viteProcess = spawn3(node.executable, [npmCli, "run", "dev"], {
+  state.rsbuildProcess = spawn3(node.executable, [npmCli, "run", "dev"], {
     cwd: projectPath,
     stdio: "inherit",
     windowsHide: false,
@@ -398,20 +398,20 @@ function startVite(node) {
       PATH: `${nodeDirectory};${process.env.PATH || ""}`
     }
   });
-  state.viteProcess.on("error", (err) => {
-    error("Failed to start Vite");
+  state.rsbuildProcess.on("error", (err) => {
+    error("Failed to start Rsbuild");
     error(err.message);
     waitBeforeExit();
   });
-  state.viteProcess.on("close", (code) => {
+  state.rsbuildProcess.on("close", (code) => {
     if (code !== 0) {
-      error(`Vite exited with code ${code}`);
+      error(`Rsbuild exited with code ${code}`);
       waitBeforeExit(code);
     }
   });
-  waitForVite();
+  waitForRsbuild();
 }
-function waitForVite() {
+function waitForRsbuild() {
   let attempts = 0;
   const maxAttempts = 100;
   const interval = setInterval(() => {
@@ -419,13 +419,13 @@ function waitForVite() {
     checkPort(port, (exists) => {
       if (exists) {
         clearInterval(interval);
-        log(`Vite ready: http://localhost:${port}/`);
+        log(`Rsbuild ready: http://localhost:${port}/`);
         openBrowser();
         return;
       }
       if (attempts >= maxAttempts) {
         clearInterval(interval);
-        error("Vite did not become ready");
+        error("Rsbuild did not become ready");
         waitBeforeExit();
       }
     });
@@ -914,9 +914,9 @@ async function main() {
     return;
   }
   try {
-    checkExistingVite(setupResult.node);
+    checkExistingRsbuild(setupResult.node);
   } catch (err) {
-    fail("Failed to start Vite", err);
+    fail("Failed to start Rsbuild", err);
   }
 }
 main().catch((err) => {

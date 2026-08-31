@@ -1,7 +1,12 @@
-export default function App() {
+import "./App.css"
+
+const App = () => {
     return (
-        <div className="min-h-screen bg-red-500 p-10">
-            <h1 className="text-5xl font-bold text-white">React Press</h1>
+        <div className="content">
+            <h1>Rsbuild with React</h1>
+            <p>Start building amazing things with Rsbuild.</p>
         </div>
     )
 }
+
+export default App

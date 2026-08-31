@@ -1,9 +1,8 @@
-import path from "node:path"
 import fs from "node:fs"
 import { log, error } from "./logger.mjs"
-import { isSea, root, projectPath, setupScript } from "./constants.mjs"
+import { isSea, projectPath, setupScript } from "./constants.mjs"
 import { runSetup } from "./setup.mjs"
-import { checkExistingVite } from "./viteManager.mjs"
+import { checkExistingRsbuild } from "./rsbuildManager.mjs"
 import { ensureMongoDB } from "./databaseManager.mjs"
 
 function keepAlive() {
@@ -24,6 +23,7 @@ function fail(message, details = null) {
 
 async function main() {
     log("========== React Press Launcher ==========")
+
     if (!fs.existsSync(projectPath)) {
         fail("Project directory does not exist", projectPath)
         return
@@ -65,21 +65,18 @@ async function main() {
         }
 
         fail("React Press could not prepare the required environment")
-
         return
     }
 
     try {
-        checkExistingVite(setupResult.node)
+        checkExistingRsbuild(setupResult.node)
     } catch (err) {
-        fail("Failed to start Vite", err)
+        fail("Failed to start Rsbuild", err)
     }
 }
 
 main().catch((err) => {
     error("Unhandled React Press Launcher error")
-
     error(err)
-
     keepAlive()
 })
