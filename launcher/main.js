@@ -2,17 +2,13 @@ import path from "node:path"
 import fs from "node:fs"
 import { log, error } from "./logger.mjs"
 import { isSea, root, projectPath, setupScript } from "./constants.mjs"
-import { waitBeforeExit } from "./utils.mjs"
 import { runSetup } from "./setup.mjs"
 import { checkExistingVite } from "./viteManager.mjs"
+import { ensureMongoDB } from "./databaseManager.mjs"
 
 function keepAlive() {
-    if (!isSea) {
-        return
-    }
-
+    if (!isSea) return
     process.stdin.resume()
-
     process.stdin.on("data", () => {})
 }
 
@@ -28,16 +24,6 @@ function fail(message, details = null) {
 
 async function main() {
     log("========== React Press Launcher ==========")
-    log("SEA:", isSea)
-    log("Executable:", process.execPath)
-    log(
-        "Directory:",
-        isSea ? path.dirname(process.execPath) : path.dirname(new URL(import.meta.url).pathname)
-    )
-    log("Root:", root)
-    log("Project:", projectPath)
-    log("Setup:", setupScript)
-
     if (!fs.existsSync(projectPath)) {
         fail("Project directory does not exist", projectPath)
         return
@@ -45,6 +31,20 @@ async function main() {
 
     if (!fs.existsSync(setupScript)) {
         fail("Setup script does not exist", setupScript)
+        return
+    }
+
+    let mongoResult
+
+    try {
+        mongoResult = await ensureMongoDB()
+    } catch (err) {
+        fail("MongoDB setup crashed", err)
+        return
+    }
+
+    if (!mongoResult?.success) {
+        fail("React Press could not prepare MongoDB", mongoResult?.reason)
         return
     }
 

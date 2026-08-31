@@ -21,6 +21,12 @@ const setupScript = path.join(root, "scripts", "setup-environment.mjs")
 
 const nodeErrorPage = path.join(root, "launcher", "node-error.html")
 
+const mongodbPath = path.join(root, "databases", "progs", "mongodb")
+
+const mongodbInstaller = path.join(mongodbPath, "mongodb-windows-x86_64-8.3.8-signed.msi")
+
+const mongoshInstaller = path.join(mongodbPath, "mongosh-2.10.0-x64.msi")
+
 export {
     __filename,
     __dirname,
@@ -32,5 +38,8 @@ export {
     port,
     url,
     requiredNodeVersion,
-    minimumSystemNodeMajor
+    minimumSystemNodeMajor,
+    mongodbPath,
+    mongodbInstaller,
+    mongoshInstaller
 }
