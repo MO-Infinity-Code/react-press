@@ -274,19 +274,12 @@ function getNvmPath() {
     return null;
   }
 }
-function getNvmRoot(nvmPath) {
-  try {
-    const output = execFileSync2(nvmPath, ["root"], {
-      encoding: "utf8",
-      windowsHide: true
-    });
-    const lines = output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-    return lines.at(-1) || null;
-  } catch (err) {
-    error("Failed to read NVM root");
-    error(err.message);
-    return null;
+function getNvmHome() {
+  const nvmHome = process.env.NVM_HOME?.trim();
+  if (nvmHome && fs.existsSync(nvmHome)) {
+    return nvmHome;
   }
+  return null;
 }
 function getNvmVersions(nvmPath) {
   try {
@@ -341,16 +334,20 @@ function useNodeWithNvm(nvmPath) {
     return false;
   }
 }
-function getNvmNodeExecutable(nvmPath, version) {
-  const nvmRoot = getNvmRoot(nvmPath);
-  if (!nvmRoot) {
+function getNvmNodeExecutable() {
+  const nvmHome = getNvmHome();
+  if (!nvmHome) {
     return null;
   }
   const candidates = [
-    path2.join(nvmRoot, `v${version}`, "node.exe"),
-    path2.join(nvmRoot, version, "node.exe")
+    path2.join(nvmHome, `v${requiredNodeVersion}`, "node.exe"),
+    path2.join(nvmHome, requiredNodeVersion, "node.exe")
   ];
-  return candidates.find((filePath) => fs.existsSync(filePath)) || null;
+  const nodeExecutable = candidates.find((filePath) => fs.existsSync(filePath));
+  if (nodeExecutable) {
+    return nodeExecutable;
+  }
+  return null;
 }
 function getNodeVersion2(nodeCommand) {
   try {
@@ -398,9 +395,9 @@ function resolveNvmNode() {
       executable: null
     };
   }
-  const nodeExecutable = getNvmNodeExecutable(nvmPath, requiredNodeVersion);
+  const nodeExecutable = getNvmNodeExecutable();
   if (!nodeExecutable) {
-    error(`Node.js ${requiredNodeVersion} executable was not found in NVM`);
+    error(`Node.js ${requiredNodeVersion} executable was not found in NVM_HOME`);
     return {
       supported: false,
       source: "nvm",

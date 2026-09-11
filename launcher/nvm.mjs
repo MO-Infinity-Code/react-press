@@ -20,24 +20,14 @@ function getNvmPath() {
     }
 }
 
-function getNvmRoot(nvmPath) {
-    try {
-        const output = execFileSync(nvmPath, ["root"], {
-            encoding: "utf8",
-            windowsHide: true
-        })
+function getNvmHome() {
+    const nvmHome = process.env.NVM_HOME?.trim()
 
-        const lines = output
-            .split(/\r?\n/)
-            .map((value) => value.trim())
-            .filter(Boolean)
-
-        return lines.at(-1) || null
-    } catch (err) {
-        error("Failed to read NVM root")
-        error(err.message)
-        return null
+    if (nvmHome && fs.existsSync(nvmHome)) {
+        return nvmHome
     }
+
+    return null
 }
 
 function getNvmVersions(nvmPath) {
@@ -105,19 +95,25 @@ function useNodeWithNvm(nvmPath) {
     }
 }
 
-function getNvmNodeExecutable(nvmPath, version) {
-    const nvmRoot = getNvmRoot(nvmPath)
+function getNvmNodeExecutable() {
+    const nvmHome = getNvmHome()
 
-    if (!nvmRoot) {
+    if (!nvmHome) {
         return null
     }
 
     const candidates = [
-        path.join(nvmRoot, `v${version}`, "node.exe"),
-        path.join(nvmRoot, version, "node.exe")
+        path.join(nvmHome, `v${requiredNodeVersion}`, "node.exe"),
+        path.join(nvmHome, requiredNodeVersion, "node.exe")
     ]
 
-    return candidates.find((filePath) => fs.existsSync(filePath)) || null
+    const nodeExecutable = candidates.find((filePath) => fs.existsSync(filePath))
+
+    if (nodeExecutable) {
+        return nodeExecutable
+    }
+
+    return null
 }
 
 function getNodeVersion(nodeCommand) {
@@ -179,10 +175,10 @@ function resolveNvmNode() {
         }
     }
 
-    const nodeExecutable = getNvmNodeExecutable(nvmPath, requiredNodeVersion)
+    const nodeExecutable = getNvmNodeExecutable()
 
     if (!nodeExecutable) {
-        error(`Node.js ${requiredNodeVersion} executable was not found in NVM`)
+        error(`Node.js ${requiredNodeVersion} executable was not found in NVM_HOME`)
 
         return {
             supported: false,
