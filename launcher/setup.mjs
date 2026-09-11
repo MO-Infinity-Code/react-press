@@ -95,6 +95,8 @@ function resolveSystemNode() {
         }
     }
 
+    log(`Node.js ${version} selected from system`)
+
     return {
         supported: true,
         source: "system",
@@ -104,6 +106,12 @@ function resolveSystemNode() {
 }
 
 function resolveNode() {
+    const systemNode = resolveSystemNode()
+
+    if (systemNode?.supported) {
+        return systemNode
+    }
+
     const fnmNode = resolveFnmNode()
 
     if (fnmNode?.supported) {
@@ -116,7 +124,12 @@ function resolveNode() {
         return nvmNode
     }
 
-    return resolveSystemNode()
+    return {
+        supported: false,
+        source: nvmNode?.source || fnmNode?.source || systemNode?.source || null,
+        version: nvmNode?.version || fnmNode?.version || systemNode?.version || null,
+        executable: nvmNode?.executable || fnmNode?.executable || systemNode?.executable || null
+    }
 }
 
 function runSetup() {

@@ -274,13 +274,6 @@ function getNvmPath() {
     return null;
   }
 }
-function getNvmHome() {
-  const nvmHome = process.env.NVM_HOME?.trim();
-  if (nvmHome && fs.existsSync(nvmHome)) {
-    return nvmHome;
-  }
-  return null;
-}
 function getNvmVersions(nvmPath) {
   try {
     const output = execFileSync2(nvmPath, ["list"], {
@@ -334,20 +327,24 @@ function useNodeWithNvm(nvmPath) {
     return false;
   }
 }
+function getNvmSymlink() {
+  const configuredSymlink = process.env.NVM_SYMLINK?.trim();
+  if (configuredSymlink && fs.existsSync(configuredSymlink)) {
+    return configuredSymlink;
+  }
+  const candidates = ["C:\\Program Files\\nodejs", "C:\\Program Files (x86)\\nodejs"];
+  return candidates.find((directory) => fs.existsSync(directory)) || null;
+}
 function getNvmNodeExecutable() {
-  const nvmHome = getNvmHome();
-  if (!nvmHome) {
+  const nvmSymlink = getNvmSymlink();
+  if (!nvmSymlink) {
     return null;
   }
-  const candidates = [
-    path2.join(nvmHome, `v${requiredNodeVersion}`, "node.exe"),
-    path2.join(nvmHome, requiredNodeVersion, "node.exe")
-  ];
-  const nodeExecutable = candidates.find((filePath) => fs.existsSync(filePath));
-  if (nodeExecutable) {
-    return nodeExecutable;
+  const nodeExecutable = path2.join(nvmSymlink, "node.exe");
+  if (!fs.existsSync(nodeExecutable)) {
+    return null;
   }
-  return null;
+  return nodeExecutable;
 }
 function getNodeVersion2(nodeCommand) {
   try {
@@ -397,7 +394,7 @@ function resolveNvmNode() {
   }
   const nodeExecutable = getNvmNodeExecutable();
   if (!nodeExecutable) {
-    error(`Node.js ${requiredNodeVersion} executable was not found in NVM_HOME`);
+    error("Node.js executable was not found in NVM symlink");
     return {
       supported: false,
       source: "nvm",
@@ -497,6 +494,7 @@ function resolveSystemNode() {
       executable: nodeExecutable
     };
   }
+  log(`Node.js ${version} selected from system`);
   return {
     supported: true,
     source: "system",
@@ -505,6 +503,10 @@ function resolveSystemNode() {
   };
 }
 function resolveNode() {
+  const systemNode = resolveSystemNode();
+  if (systemNode?.supported) {
+    return systemNode;
+  }
   const fnmNode = resolveFnmNode();
   if (fnmNode?.supported) {
     return fnmNode;
@@ -513,7 +515,12 @@ function resolveNode() {
   if (nvmNode?.supported) {
     return nvmNode;
   }
-  return resolveSystemNode();
+  return {
+    supported: false,
+    source: nvmNode?.source || fnmNode?.source || systemNode?.source || null,
+    version: nvmNode?.version || fnmNode?.version || systemNode?.version || null,
+    executable: nvmNode?.executable || fnmNode?.executable || systemNode?.executable || null
+  };
 }
 function runSetup() {
   const node = resolveNode();

@@ -20,16 +20,6 @@ function getNvmPath() {
     }
 }
 
-function getNvmHome() {
-    const nvmHome = process.env.NVM_HOME?.trim()
-
-    if (nvmHome && fs.existsSync(nvmHome)) {
-        return nvmHome
-    }
-
-    return null
-}
-
 function getNvmVersions(nvmPath) {
     try {
         const output = execFileSync(nvmPath, ["list"], {
@@ -95,25 +85,32 @@ function useNodeWithNvm(nvmPath) {
     }
 }
 
-function getNvmNodeExecutable() {
-    const nvmHome = getNvmHome()
+function getNvmSymlink() {
+    const configuredSymlink = process.env.NVM_SYMLINK?.trim()
 
-    if (!nvmHome) {
+    if (configuredSymlink && fs.existsSync(configuredSymlink)) {
+        return configuredSymlink
+    }
+
+    const candidates = ["C:\\Program Files\\nodejs", "C:\\Program Files (x86)\\nodejs"]
+
+    return candidates.find((directory) => fs.existsSync(directory)) || null
+}
+
+function getNvmNodeExecutable() {
+    const nvmSymlink = getNvmSymlink()
+
+    if (!nvmSymlink) {
         return null
     }
 
-    const candidates = [
-        path.join(nvmHome, `v${requiredNodeVersion}`, "node.exe"),
-        path.join(nvmHome, requiredNodeVersion, "node.exe")
-    ]
+    const nodeExecutable = path.join(nvmSymlink, "node.exe")
 
-    const nodeExecutable = candidates.find((filePath) => fs.existsSync(filePath))
-
-    if (nodeExecutable) {
-        return nodeExecutable
+    if (!fs.existsSync(nodeExecutable)) {
+        return null
     }
 
-    return null
+    return nodeExecutable
 }
 
 function getNodeVersion(nodeCommand) {
@@ -178,7 +175,7 @@ function resolveNvmNode() {
     const nodeExecutable = getNvmNodeExecutable()
 
     if (!nodeExecutable) {
-        error(`Node.js ${requiredNodeVersion} executable was not found in NVM_HOME`)
+        error("Node.js executable was not found in NVM symlink")
 
         return {
             supported: false,
