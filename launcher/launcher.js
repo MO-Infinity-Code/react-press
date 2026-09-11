@@ -124,7 +124,7 @@ var init_browser = __esm({
 // ../../launcher/main.js
 init_logger();
 init_constants();
-import fs2 from "node:fs";
+import fs3 from "node:fs";
 
 // ../../launcher/setup.mjs
 init_constants();
@@ -261,6 +261,8 @@ function resolveFnmNode() {
 // ../../launcher/nvm.mjs
 init_constants();
 init_logger();
+import fs from "node:fs";
+import path2 from "node:path";
 import { execFileSync as execFileSync2 } from "node:child_process";
 function getNvmPath() {
   try {
@@ -269,6 +271,20 @@ function getNvmPath() {
       windowsHide: true
     }).split(/\r?\n/).map((value) => value.trim()).find(Boolean) || null;
   } catch {
+    return null;
+  }
+}
+function getNvmRoot(nvmPath) {
+  try {
+    const output = execFileSync2(nvmPath, ["root"], {
+      encoding: "utf8",
+      windowsHide: true
+    });
+    const lines = output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+    return lines.at(-1) || null;
+  } catch (err) {
+    error("Failed to read NVM root");
+    error(err.message);
     return null;
   }
 }
@@ -325,15 +341,16 @@ function useNodeWithNvm(nvmPath) {
     return false;
   }
 }
-function getNodeExecutable() {
-  try {
-    return execFileSync2("where.exe", ["node.exe"], {
-      encoding: "utf8",
-      windowsHide: true
-    }).split(/\r?\n/).map((value) => value.trim()).find(Boolean) || null;
-  } catch {
+function getNvmNodeExecutable(nvmPath, version) {
+  const nvmRoot = getNvmRoot(nvmPath);
+  if (!nvmRoot) {
     return null;
   }
+  const candidates = [
+    path2.join(nvmRoot, `v${version}`, "node.exe"),
+    path2.join(nvmRoot, version, "node.exe")
+  ];
+  return candidates.find((filePath) => fs.existsSync(filePath)) || null;
 }
 function getNodeVersion2(nodeCommand) {
   try {
@@ -381,9 +398,9 @@ function resolveNvmNode() {
       executable: null
     };
   }
-  const nodeExecutable = getNodeExecutable();
+  const nodeExecutable = getNvmNodeExecutable(nvmPath, requiredNodeVersion);
   if (!nodeExecutable) {
-    error("Node.js executable was not found after activating NVM");
+    error(`Node.js ${requiredNodeVersion} executable was not found in NVM`);
     return {
       supported: false,
       source: "nvm",
@@ -393,9 +410,7 @@ function resolveNvmNode() {
   }
   const version = getNodeVersion2(nodeExecutable);
   if (version !== requiredNodeVersion) {
-    error(
-      `Expected Node.js ${requiredNodeVersion} but NVM activated ${version || "Unknown"}`
-    );
+    error(`Expected Node.js ${requiredNodeVersion} but found ${version || "Unknown"} in NVM`);
     return {
       supported: false,
       source: "nvm",
@@ -404,6 +419,7 @@ function resolveNvmNode() {
     };
   }
   log(`Node.js ${version} selected from NVM`);
+  log(`Node executable: ${nodeExecutable}`);
   return {
     supported: true,
     source: "nvm",
@@ -493,11 +509,11 @@ function resolveSystemNode() {
 }
 function resolveNode() {
   const fnmNode = resolveFnmNode();
-  if (fnmNode) {
+  if (fnmNode?.supported) {
     return fnmNode;
   }
   const nvmNode = resolveNvmNode();
-  if (nvmNode) {
+  if (nvmNode?.supported) {
     return nvmNode;
   }
   return resolveSystemNode();
@@ -514,6 +530,7 @@ function runSetup() {
   }
   log(`Node.js ${node.version}`);
   log(`Node source: ${node.source}`);
+  log(`Node executable: ${node.executable}`);
   return new Promise((resolve) => {
     const setupProcess = spawn(node.executable, [setupScript], {
       cwd: root,
@@ -550,7 +567,7 @@ function runSetup() {
 init_constants();
 init_logger();
 import { spawn as spawn3 } from "node:child_process";
-import path2 from "node:path";
+import path3 from "node:path";
 
 // ../../launcher/utils.mjs
 init_constants();
@@ -611,8 +628,8 @@ function checkExistingRsbuild(node) {
   });
 }
 function startRsbuild(node) {
-  const nodeDirectory = path2.dirname(node.executable);
-  const npmCli = path2.join(nodeDirectory, "node_modules", "npm", "bin", "npm-cli.js");
+  const nodeDirectory = path3.dirname(node.executable);
+  const npmCli = path3.join(nodeDirectory, "node_modules", "npm", "bin", "npm-cli.js");
   state.rsbuildProcess = spawn3(node.executable, [npmCli, "run", "dev"], {
     cwd: projectPath,
     stdio: "inherit",
@@ -660,8 +677,8 @@ function waitForRsbuild() {
 init_constants();
 init_logger();
 import { execFileSync as execFileSync4, spawnSync } from "node:child_process";
-import fs from "node:fs";
-import path3 from "node:path";
+import fs2 from "node:fs";
+import path4 from "node:path";
 import os from "node:os";
 function getMongoDBServiceStatus() {
   try {
@@ -737,7 +754,7 @@ function getFriendlyDiskMessage(name, requiredLabel, drive) {
   return `Not enough disk space on ${drive} to install ${name} \u2014 free up at least ${requiredLabel} GB on that drive and try again`;
 }
 function getRootDrive() {
-  return path3.parse(root).root;
+  return path4.parse(root).root;
 }
 function getSystemDrive() {
   return (process.env.SystemDrive || "C:") + "\\";
@@ -767,10 +784,10 @@ function checkDiskSpace(name, requiredBytes, requiredLabel) {
   return true;
 }
 function readMsiLogLines(logPath) {
-  if (!logPath || !fs.existsSync(logPath)) {
+  if (!logPath || !fs2.existsSync(logPath)) {
     return null;
   }
-  const raw = fs.readFileSync(logPath, "utf16le");
+  const raw = fs2.readFileSync(logPath, "utf16le");
   return raw.split(/\r?\n/).filter(Boolean);
 }
 function dumpMsiLog(logPath, label) {
@@ -816,12 +833,12 @@ function analyzeMsiLog(logPath, name, requiredLabel) {
   return { handled: false };
 }
 function installMsi(installer, name, argumentsList, requiredLabel) {
-  if (!fs.existsSync(installer)) {
+  if (!fs2.existsSync(installer)) {
     error(`[msi] ${name} installer was not found`);
     error(`[msi] Expected installer: ${installer}`);
     return { success: false, logPath: null };
   }
-  const msiLogPath = path3.join(
+  const msiLogPath = path4.join(
     os.tmpdir(),
     `react-press-${name.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}.log`
   );
@@ -900,25 +917,25 @@ function findMongoshExecutable() {
     });
     const paths = output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
     for (const executablePath of paths) {
-      if (fs.existsSync(executablePath)) {
+      if (fs2.existsSync(executablePath)) {
         return executablePath;
       }
     }
   } catch {
   }
-  const localAppData = process.env.LOCALAPPDATA || path3.join(os.homedir(), "AppData", "Local");
+  const localAppData = process.env.LOCALAPPDATA || path4.join(os.homedir(), "AppData", "Local");
   const programFiles = process.env.ProgramFiles || "C:\\Program Files";
   const programFilesX86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
   const locations = [
-    path3.join(localAppData, "Programs", "mongosh", "mongosh.exe"),
-    path3.join(localAppData, "Programs", "mongosh", "bin", "mongosh.exe"),
-    path3.join(programFiles, "mongosh", "bin", "mongosh.exe"),
-    path3.join(programFiles, "MongoDB", "mongosh", "bin", "mongosh.exe"),
-    path3.join(programFilesX86, "mongosh", "bin", "mongosh.exe"),
-    path3.join(programFilesX86, "MongoDB", "mongosh", "bin", "mongosh.exe")
+    path4.join(localAppData, "Programs", "mongosh", "mongosh.exe"),
+    path4.join(localAppData, "Programs", "mongosh", "bin", "mongosh.exe"),
+    path4.join(programFiles, "mongosh", "bin", "mongosh.exe"),
+    path4.join(programFiles, "MongoDB", "mongosh", "bin", "mongosh.exe"),
+    path4.join(programFilesX86, "mongosh", "bin", "mongosh.exe"),
+    path4.join(programFilesX86, "MongoDB", "mongosh", "bin", "mongosh.exe")
   ];
   for (const executablePath of locations) {
-    if (fs.existsSync(executablePath)) {
+    if (fs2.existsSync(executablePath)) {
       return executablePath;
     }
   }
@@ -939,7 +956,7 @@ function addMongoshToCurrentPath() {
     error("[mongosh] Cannot add mongosh to PATH because mongosh.exe was not found");
     return false;
   }
-  const binDirectory = path3.dirname(executablePath);
+  const binDirectory = path4.dirname(executablePath);
   const currentPath = process.env.PATH || "";
   const entries = currentPath.split(";").map((entry) => entry.trim().toLowerCase()).filter(Boolean);
   if (!entries.includes(binDirectory.toLowerCase())) {
@@ -1103,11 +1120,11 @@ function fail(message, details = null) {
 }
 async function main() {
   log("========== React Press Launcher ==========");
-  if (!fs2.existsSync(projectPath)) {
+  if (!fs3.existsSync(projectPath)) {
     fail("Project directory does not exist", projectPath);
     return;
   }
-  if (!fs2.existsSync(setupScript)) {
+  if (!fs3.existsSync(setupScript)) {
     fail("Setup script does not exist", setupScript);
     return;
   }

@@ -106,13 +106,13 @@ function resolveSystemNode() {
 function resolveNode() {
     const fnmNode = resolveFnmNode()
 
-    if (fnmNode) {
+    if (fnmNode?.supported) {
         return fnmNode
     }
 
     const nvmNode = resolveNvmNode()
 
-    if (nvmNode) {
+    if (nvmNode?.supported) {
         return nvmNode
     }
 
@@ -133,6 +133,7 @@ function runSetup() {
 
     log(`Node.js ${node.version}`)
     log(`Node source: ${node.source}`)
+    log(`Node executable: ${node.executable}`)
 
     return new Promise((resolve) => {
         const setupProcess = spawn(node.executable, [setupScript], {
