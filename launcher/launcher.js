@@ -129,21 +129,17 @@ import fs2 from "node:fs";
 // ../../launcher/setup.mjs
 init_constants();
 init_logger();
-import { spawn, execFileSync } from "node:child_process";
-function commandExists(command) {
-  try {
-    execFileSync("where.exe", [command], {
-      stdio: "ignore"
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { spawn, execFileSync as execFileSync3 } from "node:child_process";
+
+// ../../launcher/fnm.mjs
+init_constants();
+init_logger();
+import { execFileSync } from "node:child_process";
 function getFnmPath() {
   try {
     return execFileSync("where.exe", ["fnm.exe"], {
-      encoding: "utf8"
+      encoding: "utf8",
+      windowsHide: true
     }).split(/\r?\n/).map((value) => value.trim()).find(Boolean) || null;
   } catch {
     return null;
@@ -152,7 +148,8 @@ function getFnmPath() {
 function getFnmVersions(fnmPath) {
   try {
     const output = execFileSync(fnmPath, ["list"], {
-      encoding: "utf8"
+      encoding: "utf8",
+      windowsHide: true
     });
     const versions = [];
     for (const line of output.split(/\r?\n/)) {
@@ -165,16 +162,19 @@ function getFnmVersions(fnmPath) {
       }
     }
     return [...new Set(versions)];
-  } catch {
+  } catch (err) {
+    error("Failed to read FNM versions");
+    error(err.message);
     return [];
   }
 }
 function installNodeWithFnm(fnmPath) {
-  log(`Installing Node.js ${requiredNodeVersion}...`);
+  log(`Installing Node.js ${requiredNodeVersion} using FNM`);
   try {
     execFileSync(fnmPath, ["install", requiredNodeVersion], {
       stdio: "inherit",
-      cwd: root
+      cwd: root,
+      windowsHide: false
     });
     return true;
   } catch (err) {
@@ -183,25 +183,263 @@ function installNodeWithFnm(fnmPath) {
     return false;
   }
 }
-function getFnmNodeExecutable(fnmPath, version) {
+function getFnmNodeExecutable(fnmPath) {
   try {
     const output = execFileSync(
       fnmPath,
-      ["exec", "--using", version, "node", "-p", "process.execPath"],
+      ["exec", "--using", requiredNodeVersion, "node", "-p", "process.execPath"],
       {
         encoding: "utf8",
-        cwd: root
+        cwd: root,
+        windowsHide: true
       }
     );
     return output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean).at(-1) || null;
-  } catch {
+  } catch (err) {
+    error(`Failed to resolve Node.js ${requiredNodeVersion} from FNM`);
+    error(err.message);
     return null;
   }
 }
 function getNodeVersion(nodeCommand) {
   try {
     return execFileSync(nodeCommand, ["--version"], {
-      encoding: "utf8"
+      encoding: "utf8",
+      windowsHide: true
+    }).trim().replace(/^v/, "");
+  } catch {
+    return null;
+  }
+}
+function resolveFnmNode() {
+  const fnmPath = getFnmPath();
+  if (!fnmPath) {
+    return null;
+  }
+  log("FNM detected");
+  let versions = getFnmVersions(fnmPath);
+  if (!versions.includes(requiredNodeVersion)) {
+    const installed = installNodeWithFnm(fnmPath);
+    if (!installed) {
+      return {
+        supported: false,
+        source: "fnm",
+        version: null,
+        executable: null
+      };
+    }
+    versions = getFnmVersions(fnmPath);
+  }
+  const nodeExecutable = getFnmNodeExecutable(fnmPath);
+  if (!nodeExecutable) {
+    return {
+      supported: false,
+      source: "fnm",
+      version: null,
+      executable: null
+    };
+  }
+  const version = getNodeVersion(nodeExecutable);
+  if (version !== requiredNodeVersion) {
+    return {
+      supported: false,
+      source: "fnm",
+      version,
+      executable: nodeExecutable
+    };
+  }
+  log(`Node.js ${version} selected from FNM`);
+  return {
+    supported: true,
+    source: "fnm",
+    version,
+    executable: nodeExecutable,
+    managerPath: fnmPath
+  };
+}
+
+// ../../launcher/nvm.mjs
+init_constants();
+init_logger();
+import { execFileSync as execFileSync2 } from "node:child_process";
+function getNvmPath() {
+  try {
+    return execFileSync2("where.exe", ["nvm.exe"], {
+      encoding: "utf8",
+      windowsHide: true
+    }).split(/\r?\n/).map((value) => value.trim()).find(Boolean) || null;
+  } catch {
+    return null;
+  }
+}
+function getNvmVersions(nvmPath) {
+  try {
+    const output = execFileSync2(nvmPath, ["list"], {
+      encoding: "utf8",
+      windowsHide: true
+    });
+    const versions = [];
+    for (const line of output.split(/\r?\n/)) {
+      const matches = line.match(/v?(\d+\.\d+\.\d+)/g);
+      if (!matches) {
+        continue;
+      }
+      for (const version of matches) {
+        versions.push(version.replace(/^v/, ""));
+      }
+    }
+    return [...new Set(versions)];
+  } catch (err) {
+    error("Failed to read NVM versions");
+    error(err.message);
+    return [];
+  }
+}
+function installNodeWithNvm(nvmPath) {
+  log(`Installing Node.js ${requiredNodeVersion} using NVM`);
+  try {
+    execFileSync2(nvmPath, ["install", requiredNodeVersion], {
+      stdio: "inherit",
+      cwd: root,
+      windowsHide: false
+    });
+    return true;
+  } catch (err) {
+    error("Failed to install Node.js with NVM");
+    error(err.message);
+    return false;
+  }
+}
+function useNodeWithNvm(nvmPath) {
+  log(`Activating Node.js ${requiredNodeVersion} using NVM`);
+  try {
+    execFileSync2(nvmPath, ["use", requiredNodeVersion], {
+      stdio: "inherit",
+      cwd: root,
+      windowsHide: false
+    });
+    return true;
+  } catch (err) {
+    error("Failed to activate Node.js with NVM");
+    error(err.message);
+    return false;
+  }
+}
+function getNodeExecutable() {
+  try {
+    return execFileSync2("where.exe", ["node.exe"], {
+      encoding: "utf8",
+      windowsHide: true
+    }).split(/\r?\n/).map((value) => value.trim()).find(Boolean) || null;
+  } catch {
+    return null;
+  }
+}
+function getNodeVersion2(nodeCommand) {
+  try {
+    return execFileSync2(nodeCommand, ["--version"], {
+      encoding: "utf8",
+      windowsHide: true
+    }).trim().replace(/^v/, "");
+  } catch {
+    return null;
+  }
+}
+function resolveNvmNode() {
+  const nvmPath = getNvmPath();
+  if (!nvmPath) {
+    return null;
+  }
+  log("NVM detected");
+  let versions = getNvmVersions(nvmPath);
+  if (!versions.includes(requiredNodeVersion)) {
+    const installed = installNodeWithNvm(nvmPath);
+    if (!installed) {
+      return {
+        supported: false,
+        source: "nvm",
+        version: null,
+        executable: null
+      };
+    }
+    versions = getNvmVersions(nvmPath);
+  }
+  if (!versions.includes(requiredNodeVersion)) {
+    error(`Node.js ${requiredNodeVersion} is not available in NVM`);
+    return {
+      supported: false,
+      source: "nvm",
+      version: null,
+      executable: null
+    };
+  }
+  if (!useNodeWithNvm(nvmPath)) {
+    return {
+      supported: false,
+      source: "nvm",
+      version: null,
+      executable: null
+    };
+  }
+  const nodeExecutable = getNodeExecutable();
+  if (!nodeExecutable) {
+    error("Node.js executable was not found after activating NVM");
+    return {
+      supported: false,
+      source: "nvm",
+      version: null,
+      executable: null
+    };
+  }
+  const version = getNodeVersion2(nodeExecutable);
+  if (version !== requiredNodeVersion) {
+    error(
+      `Expected Node.js ${requiredNodeVersion} but NVM activated ${version || "Unknown"}`
+    );
+    return {
+      supported: false,
+      source: "nvm",
+      version,
+      executable: nodeExecutable
+    };
+  }
+  log(`Node.js ${version} selected from NVM`);
+  return {
+    supported: true,
+    source: "nvm",
+    version,
+    executable: nodeExecutable,
+    managerPath: nvmPath
+  };
+}
+
+// ../../launcher/setup.mjs
+function commandExists(command) {
+  try {
+    execFileSync3("where.exe", [command], {
+      stdio: "ignore",
+      windowsHide: true
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+function getSystemNodeExecutable() {
+  try {
+    return execFileSync3("where.exe", ["node.exe"], {
+      encoding: "utf8",
+      windowsHide: true
+    }).split(/\r?\n/).map((value) => value.trim()).find(Boolean) || null;
+  } catch {
+    return null;
+  }
+}
+function getNodeVersion3(nodeCommand) {
+  try {
+    return execFileSync3(nodeCommand, ["--version"], {
+      encoding: "utf8",
+      windowsHide: true
     }).trim().replace(/^v/, "");
   } catch {
     return null;
@@ -214,82 +452,68 @@ function getMajorVersion(version) {
   const major = Number(version.split(".")[0]);
   return Number.isFinite(major) ? major : null;
 }
-function resolveNode() {
-  const fnmPath = getFnmPath();
-  if (fnmPath) {
-    const versions = getFnmVersions(fnmPath);
-    let nodeExecutable = getFnmNodeExecutable(fnmPath, requiredNodeVersion);
-    if (!nodeExecutable) {
-      if (!versions.includes(requiredNodeVersion)) {
-        const installed = installNodeWithFnm(fnmPath);
-        if (!installed) {
-          return {
-            unsupported: true,
-            version: null,
-            source: "fnm"
-          };
-        }
-      }
-      nodeExecutable = getFnmNodeExecutable(fnmPath, requiredNodeVersion);
-    }
-    if (!nodeExecutable) {
-      return {
-        unsupported: true,
-        version: null,
-        source: "fnm"
-      };
-    }
-    const version2 = getNodeVersion(nodeExecutable);
-    if (version2 !== requiredNodeVersion) {
-      return {
-        unsupported: true,
-        version: version2,
-        source: "fnm"
-      };
-    }
-    log(`Node.js ${version2}`);
-    return {
-      executable: nodeExecutable,
-      version: version2,
-      fnmPath,
-      source: "fnm"
-    };
-  }
+function resolveSystemNode() {
   if (!commandExists("node.exe")) {
     return {
-      unsupported: true,
+      supported: false,
+      source: "system",
       version: null,
-      source: "system"
+      executable: null
     };
   }
-  const nodeCommand = execFileSync("where.exe", ["node.exe"], {
-    encoding: "utf8"
-  }).split(/\r?\n/).map((value) => value.trim()).find(Boolean);
-  const version = getNodeVersion(nodeCommand);
-  const major = getMajorVersion(version);
-  if (!major || major < minimumSystemNodeMajor) {
+  const nodeExecutable = getSystemNodeExecutable();
+  if (!nodeExecutable) {
     return {
-      unsupported: true,
-      version,
-      source: "system"
+      supported: false,
+      source: "system",
+      version: null,
+      executable: null
     };
   }
-  log(`Node.js ${version}`);
+  const version = getNodeVersion3(nodeExecutable);
+  const major = getMajorVersion(version);
+  log(`System Node.js detected: ${version || "Unknown"}`);
+  if (!major || major < minimumSystemNodeMajor) {
+    error(
+      `System Node.js ${version || "Unknown"} is below required Node.js ${requiredNodeVersion}`
+    );
+    return {
+      supported: false,
+      source: "system",
+      version,
+      executable: nodeExecutable
+    };
+  }
   return {
-    executable: nodeCommand,
+    supported: true,
+    source: "system",
     version,
-    source: "system"
+    executable: nodeExecutable
   };
+}
+function resolveNode() {
+  const fnmNode = resolveFnmNode();
+  if (fnmNode) {
+    return fnmNode;
+  }
+  const nvmNode = resolveNvmNode();
+  if (nvmNode) {
+    return nvmNode;
+  }
+  return resolveSystemNode();
 }
 function runSetup() {
   const node = resolveNode();
-  if (!node || node.unsupported) {
+  if (!node || !node.supported) {
     return Promise.resolve({
       success: false,
       reason: "unsupported-node",
-      version: node?.version || null
+      version: node?.version || null,
+      source: node?.source || null
     });
   }
+  log(`Node.js ${node.version}`);
+  log(`Node source: ${node.source}`);
   return new Promise((resolve) => {
     const setupProcess = spawn(node.executable, [setupScript], {
       cwd: root,
@@ -435,13 +659,13 @@ function waitForRsbuild() {
 // ../../launcher/databaseManager.mjs
 init_constants();
 init_logger();
-import { execFileSync as execFileSync2, spawnSync } from "node:child_process";
+import { execFileSync as execFileSync4, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path3 from "node:path";
 import os from "node:os";
 function getMongoDBServiceStatus() {
   try {
-    const output = execFileSync2("sc.exe", ["query", "MongoDB"], {
+    const output = execFileSync4("sc.exe", ["query", "MongoDB"], {
       encoding: "utf8",
       windowsHide: true
     });
@@ -670,7 +894,7 @@ function installMongoDB() {
 }
 function findMongoshExecutable() {
   try {
-    const output = execFileSync2("where.exe", ["mongosh.exe"], {
+    const output = execFileSync4("where.exe", ["mongosh.exe"], {
       encoding: "utf8",
       windowsHide: true
     });

@@ -1,11 +1,14 @@
 import { spawn, execFileSync } from "node:child_process"
 import { root, setupScript, requiredNodeVersion, minimumSystemNodeMajor } from "./constants.mjs"
 import { log, error } from "./logger.mjs"
+import { resolveFnmNode } from "./fnm.mjs"
+import { resolveNvmNode } from "./nvm.mjs"
 
 function commandExists(command) {
     try {
         execFileSync("where.exe", [command], {
-            stdio: "ignore"
+            stdio: "ignore",
+            windowsHide: true
         })
 
         return true
@@ -14,11 +17,12 @@ function commandExists(command) {
     }
 }
 
-function getFnmPath() {
+function getSystemNodeExecutable() {
     try {
         return (
-            execFileSync("where.exe", ["fnm.exe"], {
-                encoding: "utf8"
+            execFileSync("where.exe", ["node.exe"], {
+                encoding: "utf8",
+                windowsHide: true
             })
                 .split(/\r?\n/)
                 .map((value) => value.trim())
@@ -29,76 +33,11 @@ function getFnmPath() {
     }
 }
 
-function getFnmVersions(fnmPath) {
-    try {
-        const output = execFileSync(fnmPath, ["list"], {
-            encoding: "utf8"
-        })
-
-        const versions = []
-
-        for (const line of output.split(/\r?\n/)) {
-            const matches = line.match(/v(\d+\.\d+\.\d+)/g)
-
-            if (!matches) {
-                continue
-            }
-
-            for (const version of matches) {
-                versions.push(version.substring(1))
-            }
-        }
-
-        return [...new Set(versions)]
-    } catch {
-        return []
-    }
-}
-
-function installNodeWithFnm(fnmPath) {
-    log(`Installing Node.js ${requiredNodeVersion}...`)
-
-    try {
-        execFileSync(fnmPath, ["install", requiredNodeVersion], {
-            stdio: "inherit",
-            cwd: root
-        })
-
-        return true
-    } catch (err) {
-        error("Failed to install Node.js with FNM")
-        error(err.message)
-        return false
-    }
-}
-
-function getFnmNodeExecutable(fnmPath, version) {
-    try {
-        const output = execFileSync(
-            fnmPath,
-            ["exec", "--using", version, "node", "-p", "process.execPath"],
-            {
-                encoding: "utf8",
-                cwd: root
-            }
-        )
-
-        return (
-            output
-                .split(/\r?\n/)
-                .map((value) => value.trim())
-                .filter(Boolean)
-                .at(-1) || null
-        )
-    } catch {
-        return null
-    }
-}
-
 function getNodeVersion(nodeCommand) {
     try {
         return execFileSync(nodeCommand, ["--version"], {
-            encoding: "utf8"
+            encoding: "utf8",
+            windowsHide: true
         })
             .trim()
             .replace(/^v/, "")
@@ -117,103 +56,83 @@ function getMajorVersion(version) {
     return Number.isFinite(major) ? major : null
 }
 
-function resolveNode() {
-    const fnmPath = getFnmPath()
-
-    if (fnmPath) {
-        const versions = getFnmVersions(fnmPath)
-
-        let nodeExecutable = getFnmNodeExecutable(fnmPath, requiredNodeVersion)
-
-        if (!nodeExecutable) {
-            if (!versions.includes(requiredNodeVersion)) {
-                const installed = installNodeWithFnm(fnmPath)
-
-                if (!installed) {
-                    return {
-                        unsupported: true,
-                        version: null,
-                        source: "fnm"
-                    }
-                }
-            }
-
-            nodeExecutable = getFnmNodeExecutable(fnmPath, requiredNodeVersion)
-        }
-
-        if (!nodeExecutable) {
-            return {
-                unsupported: true,
-                version: null,
-                source: "fnm"
-            }
-        }
-
-        const version = getNodeVersion(nodeExecutable)
-
-        if (version !== requiredNodeVersion) {
-            return {
-                unsupported: true,
-                version,
-                source: "fnm"
-            }
-        }
-
-        log(`Node.js ${version}`)
-
-        return {
-            executable: nodeExecutable,
-            version,
-            fnmPath,
-            source: "fnm"
-        }
-    }
-
+function resolveSystemNode() {
     if (!commandExists("node.exe")) {
         return {
-            unsupported: true,
+            supported: false,
+            source: "system",
             version: null,
-            source: "system"
+            executable: null
         }
     }
 
-    const nodeCommand = execFileSync("where.exe", ["node.exe"], {
-        encoding: "utf8"
-    })
-        .split(/\r?\n/)
-        .map((value) => value.trim())
-        .find(Boolean)
+    const nodeExecutable = getSystemNodeExecutable()
 
-    const version = getNodeVersion(nodeCommand)
+    if (!nodeExecutable) {
+        return {
+            supported: false,
+            source: "system",
+            version: null,
+            executable: null
+        }
+    }
+
+    const version = getNodeVersion(nodeExecutable)
     const major = getMajorVersion(version)
 
+    log(`System Node.js detected: ${version || "Unknown"}`)
+
     if (!major || major < minimumSystemNodeMajor) {
+        error(
+            `System Node.js ${version || "Unknown"} is below required Node.js ${requiredNodeVersion}`
+        )
+
         return {
-            unsupported: true,
+            supported: false,
+            source: "system",
             version,
-            source: "system"
+            executable: nodeExecutable
         }
     }
 
-    log(`Node.js ${version}`)
-
     return {
-        executable: nodeCommand,
+        supported: true,
+        source: "system",
         version,
-        source: "system"
+        executable: nodeExecutable
     }
+}
+
+function resolveNode() {
+    const fnmNode = resolveFnmNode()
+
+    if (fnmNode) {
+        return fnmNode
+    }
+
+    const nvmNode = resolveNvmNode()
+
+    if (nvmNode) {
+        return nvmNode
+    }
+
+    return resolveSystemNode()
 }
 
 function runSetup() {
     const node = resolveNode()
 
-    if (!node || node.unsupported) {
+    if (!node || !node.supported) {
         return Promise.resolve({
             success: false,
             reason: "unsupported-node",
-            version: node?.version || null
+            version: node?.version || null,
+            source: node?.source || null
         })
     }
+
+    log(`Node.js ${node.version}`)
+    log(`Node source: ${node.source}`)
 
     return new Promise((resolve) => {
         const setupProcess = spawn(node.executable, [setupScript], {
