@@ -6,6 +6,7 @@ const App = () => {
             <h1>Rsbuild with React</h1>
             {/* qdwedc */}
             <p>Start building amazing things with Rsbuild.</p>
+            <p>zanaty was here</p>
         </div>
     )
 }
