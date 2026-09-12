@@ -1,0 +1,5 @@
+export interface ReactPressUser {
+    id: string
+    name: string
+    email: string
+}

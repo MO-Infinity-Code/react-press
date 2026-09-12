@@ -1,16 +1,14 @@
-import "./App.css"
+import { Outlet } from "react-router-dom"
+import type { ReactPressTheme } from "../Hooks/Theme/types"
 
-type AppProps = {
-    theme: string
+interface AppProps {
+    theme: ReactPressTheme
 }
 
-const App = ({ theme }: AppProps) => {
+function App({ theme }: AppProps) {
     return (
-        <div className="content">
-            <h1>Rsbuild with React</h1>
-            <p>Current theme: {theme}</p>
-            <p>Start building amazing things with Rsbuild.</p>
-            <p>zanaty was here and created branch zanaty</p>
+        <div data-theme={theme}>
+            <Outlet />
         </div>
     )
 }
