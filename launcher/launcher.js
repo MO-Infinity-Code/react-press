@@ -259,26 +259,35 @@ function resolveFnmNode() {
 }
 
 // ../../launcher/nvm.mjs
-import fs from "node:fs";
 init_constants();
 init_logger();
+import fs from "node:fs";
 import { execFileSync as execFileSync2 } from "node:child_process";
 function getNvmPath() {
   try {
-    return execFileSync2("where.exe", ["nvm.exe"], {
+    const output = execFileSync2("where.exe", ["nvm.exe"], {
       encoding: "utf8",
       windowsHide: true
-    }).split(/\r?\n/).map((value) => value.trim()).find(Boolean) || null;
-  } catch {
+    });
+    log(`where nvm.exe output: ${output}`);
+    const nvmPath = output.split(/\r?\n/).map((value) => value.trim()).find(Boolean);
+    log(`NVM executable path: ${nvmPath || "NOT FOUND"}`);
+    return nvmPath || null;
+  } catch (err) {
+    error("Failed to find NVM");
+    error(err.message);
     return null;
   }
 }
 function getNvmVersions(nvmPath) {
   try {
+    log(`Reading NVM versions using: ${nvmPath}`);
     const output = execFileSync2(nvmPath, ["list"], {
       encoding: "utf8",
       windowsHide: true
     });
+    log(`NVM list output:
+${output}`);
     const versions = [];
     for (const line of output.split(/\r?\n/)) {
       const matches = line.match(/v?(\d+\.\d+\.\d+)/g);
@@ -289,7 +298,9 @@ function getNvmVersions(nvmPath) {
         versions.push(version.replace(/^v/, ""));
       }
     }
-    return [...new Set(versions)];
+    const uniqueVersions = [...new Set(versions)];
+    log(`Detected NVM versions: ${uniqueVersions.join(", ") || "NONE"}`);
+    return uniqueVersions;
   } catch (err) {
     error("Failed to read NVM versions");
     error(err.message);
@@ -298,12 +309,14 @@ function getNvmVersions(nvmPath) {
 }
 function installNodeWithNvm(nvmPath) {
   log(`Installing Node.js ${requiredNodeVersion} using NVM`);
+  log(`NVM executable: ${nvmPath}`);
   try {
     execFileSync2(nvmPath, ["install", requiredNodeVersion], {
       stdio: "inherit",
       cwd: root,
       windowsHide: false
     });
+    log(`Node.js ${requiredNodeVersion} installation completed`);
     return true;
   } catch (err) {
     error("Failed to install Node.js with NVM");
@@ -313,12 +326,14 @@ function installNodeWithNvm(nvmPath) {
 }
 function useNodeWithNvm(nvmPath) {
   log(`Activating Node.js ${requiredNodeVersion} using NVM`);
+  log(`NVM executable: ${nvmPath}`);
   try {
     execFileSync2(nvmPath, ["use", requiredNodeVersion], {
       stdio: "inherit",
       cwd: root,
       windowsHide: false
     });
+    log(`NVM use ${requiredNodeVersion} completed`);
     return true;
   } catch (err) {
     error("Failed to activate Node.js with NVM");
@@ -328,7 +343,13 @@ function useNodeWithNvm(nvmPath) {
 }
 function getNvmNodeExecutable(nvmPath) {
   log("========== Resolving NVM Node executable ==========");
+  log(`NVM executable received: ${nvmPath || "UNDEFINED"}`);
+  if (!nvmPath) {
+    error("Cannot resolve Node executable because NVM path is undefined");
+    return null;
+  }
   try {
+    log(`Running NVM exec for Node.js ${requiredNodeVersion}`);
     const output = execFileSync2(
       nvmPath,
       ["exec", requiredNodeVersion, "node", "-p", "process.execPath"],
@@ -338,10 +359,13 @@ function getNvmNodeExecutable(nvmPath) {
         windowsHide: true
       }
     );
-    log(`NVM exec output:`);
-    log(output);
-    const nodeExecutable = output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean).at(-1);
-    log(`Resolved Node executable from NVM: ${nodeExecutable || "NOT FOUND"}`);
+    log(`NVM exec raw output:
+${output}`);
+    const lines = output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+    log(`NVM exec parsed lines:`);
+    log(lines);
+    const nodeExecutable = lines.at(-1);
+    log(`Resolved Node executable: ${nodeExecutable || "NOT FOUND"}`);
     if (!nodeExecutable) {
       error("NVM did not return a Node executable path");
       return null;
@@ -359,23 +383,33 @@ function getNvmNodeExecutable(nvmPath) {
   }
 }
 function getNodeVersion2(nodeCommand) {
+  log(`Checking Node.js version using: ${nodeCommand}`);
   try {
-    return execFileSync2(nodeCommand, ["--version"], {
+    const version = execFileSync2(nodeCommand, ["--version"], {
       encoding: "utf8",
       windowsHide: true
     }).trim().replace(/^v/, "");
-  } catch {
+    log(`Node.js version detected: ${version}`);
+    return version;
+  } catch (err) {
+    error("Failed to detect Node.js version");
+    error(err.message);
     return null;
   }
 }
 function resolveNvmNode() {
+  log("========== Resolving Node.js through NVM ==========");
   const nvmPath = getNvmPath();
   if (!nvmPath) {
+    log("NVM was not found");
     return null;
   }
   log("NVM detected");
+  log(`NVM path: ${nvmPath}`);
   let versions = getNvmVersions(nvmPath);
   if (!versions.includes(requiredNodeVersion)) {
+    log(`Node.js ${requiredNodeVersion} was not found in NVM`);
+    log("Installing required Node.js version...");
     const installed = installNodeWithNvm(nvmPath);
     if (!installed) {
       return {
@@ -387,8 +421,9 @@ function resolveNvmNode() {
     }
     versions = getNvmVersions(nvmPath);
   }
+  log(`Checking if Node.js ${requiredNodeVersion} is available after installation`);
   if (!versions.includes(requiredNodeVersion)) {
-    error(`Node.js ${requiredNodeVersion} is not available in NVM`);
+    error(`Node.js ${requiredNodeVersion} is not available in NVM after installation`);
     return {
       supported: false,
       source: "nvm",
@@ -396,6 +431,7 @@ function resolveNvmNode() {
       executable: null
     };
   }
+  log(`Node.js ${requiredNodeVersion} is available in NVM`);
   if (!useNodeWithNvm(nvmPath)) {
     return {
       supported: false,
@@ -404,9 +440,9 @@ function resolveNvmNode() {
       executable: null
     };
   }
-  const nodeExecutable = getNvmNodeExecutable();
+  const nodeExecutable = getNvmNodeExecutable(nvmPath);
   if (!nodeExecutable) {
-    error("Node.js executable was not found in NVM symlink");
+    error("Failed to resolve Node.js executable from NVM");
     return {
       supported: false,
       source: "nvm",
