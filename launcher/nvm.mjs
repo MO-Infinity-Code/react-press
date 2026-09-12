@@ -25,51 +25,51 @@ function getNvmPath() {
 }
 
 function getNvmRoot(nvmPath) {
-    try {
-        log("========== Resolving NVM root ==========")
+    // try {
+    log("========== Resolving NVM root ==========")
 
-        const output = execFileSync(nvmPath, ["root"], {
-            encoding: "utf8",
-            windowsHide: true
-        })
+    const output = execFileSync(nvmPath, ["root"], {
+        encoding: "utf8",
+        windowsHide: true
+    })
 
-        log(`NVM root output:\n${output}`)
+    log(`NVM root output:\n${output}`)
 
-        const lines = output
-            .split(/\r?\n/)
-            .map((value) => value.trim())
-            .filter(Boolean)
+    const lines = output
+        .split(/\r?\n/)
+        .map((value) => value.trim())
+        .filter(Boolean)
 
-        const rootLine = lines.at(-1)
+    const rootLine = lines.at(-1)
 
-        if (!rootLine) {
-            error("NVM root was not returned")
-            return null
-        }
-
-        let nvmRoot = rootLine
-
-        const separatorIndex = nvmRoot.lastIndexOf(":")
-
-        if (separatorIndex !== -1 && nvmRoot.toLowerCase().startsWith("current root")) {
-            nvmRoot = nvmRoot.substring(separatorIndex + 1).trim()
-        }
-
-        nvmRoot = nvmRoot.replace(/^["']|["']$/g, "")
-
-        log(`Resolved NVM root: ${nvmRoot}`)
-
-        if (!fs.existsSync(nvmRoot)) {
-            error(`NVM root does not exist: ${nvmRoot}`)
-            return null
-        }
-
-        return nvmRoot
-    } catch (err) {
-        error("Failed to resolve NVM root")
-        error(err.message)
+    if (!rootLine) {
+        error("NVM root was not returned")
         return null
     }
+
+    let nvmRoot = rootLine
+
+    const separatorIndex = nvmRoot.lastIndexOf(":")
+
+    if (separatorIndex !== -1 && nvmRoot.toLowerCase().startsWith("current root")) {
+        nvmRoot = nvmRoot.substring(separatorIndex + 1).trim()
+    }
+
+    nvmRoot = nvmRoot.replace(/^["']|["']$/g, "")
+
+    log(`Resolved NVM root: ${nvmRoot}`)
+
+    if (!fs.existsSync(nvmRoot)) {
+        error(`NVM root does not exist: ${nvmRoot}`)
+        return null
+    }
+
+    return nvmRoot
+    // } catch (err) {
+    //     error("Failed to resolve NVM root")
+    //     error(err.message)
+    //     return null
+    // }
 }
 
 function getNvmVersions(nvmPath) {
