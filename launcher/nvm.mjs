@@ -125,53 +125,49 @@ function getNvmSymlink() {
     return null
 }
 
-function getNvmNodeExecutable() {
+function getNvmNodeExecutable(nvmPath) {
     log("========== Resolving NVM Node executable ==========")
 
-    const nvmSymlink = getNvmSymlink()
+    try {
+        const output = execFileSync(
+            nvmPath,
+            ["exec", requiredNodeVersion, "node", "-p", "process.execPath"],
+            {
+                encoding: "utf8",
+                cwd: root,
+                windowsHide: true
+            }
+        )
 
-    log(`NVM symlink: ${nvmSymlink || "NOT FOUND"}`)
+        log(`NVM exec output:`)
+        log(output)
 
-    if (!nvmSymlink) {
-        error("NVM symlink directory was not found")
-        error(`NVM_SYMLINK environment variable: ${process.env.NVM_SYMLINK || "NOT SET"}`)
-        return null
-    }
+        const nodeExecutable = output
+            .split(/\r?\n/)
+            .map((value) => value.trim())
+            .filter(Boolean)
+            .at(-1)
 
-    const nodeExecutable = path.join(nvmSymlink, "node.exe")
+        log(`Resolved Node executable from NVM: ${nodeExecutable || "NOT FOUND"}`)
 
-    log(`Expected Node executable: ${nodeExecutable}`)
-    log(`Checking if Node executable exists...`)
-
-    if (!fs.existsSync(nodeExecutable)) {
-        error("Node executable does not exist")
-        error(`Missing file: ${nodeExecutable}`)
-
-        try {
-            const files = fs.readdirSync(nvmSymlink)
-            log(`Files inside NVM symlink directory:`)
-            log(files)
-        } catch (err) {
-            error("Failed to read NVM symlink directory")
-            error(err.message)
+        if (!nodeExecutable) {
+            error("NVM did not return a Node executable path")
+            return null
         }
 
+        if (!fs.existsSync(nodeExecutable)) {
+            error(`Resolved Node executable does not exist: ${nodeExecutable}`)
+            return null
+        }
+
+        log(`Node executable exists: ${nodeExecutable}`)
+
+        return nodeExecutable
+    } catch (err) {
+        error("Failed to resolve Node.js executable from NVM")
+        error(err.message)
         return null
     }
-
-    log(`Node executable found: ${nodeExecutable}`)
-
-    try {
-        const stats = fs.statSync(nodeExecutable)
-
-        log(`Node executable size: ${stats.size} bytes`)
-        log(`Node executable is file: ${stats.isFile()}`)
-    } catch (err) {
-        error("Failed to inspect Node executable")
-        error(err.message)
-    }
-
-    return nodeExecutable
 }
 
 function getNodeVersion(nodeCommand) {
