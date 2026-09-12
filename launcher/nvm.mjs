@@ -11,33 +11,23 @@ function getNvmPath() {
             windowsHide: true
         })
 
-        const nvmPath = output
-            .split(/\r?\n/)
-            .map((value) => value.trim())
-            .find(Boolean)
-
-        log(`NVM executable path: ${nvmPath || "NOT FOUND"}`)
-
-        return nvmPath || null
-    } catch (err) {
-        error("Failed to find NVM")
-        error(err.message)
+        return (
+            output
+                .split(/\r?\n/)
+                .map((value) => value.trim())
+                .find(Boolean) || null
+        )
+    } catch {
         return null
     }
 }
 
 function getNvmEnvironment(nvmPath) {
     try {
-        log("========== Reading NVM environment ==========")
-
-        const output = execFileSync(nvmPath, ["env"], {
+        return execFileSync(nvmPath, ["env"], {
             encoding: "utf8",
             windowsHide: true
         })
-
-        log(`NVM env output:\n${output}`)
-
-        return output
     } catch (err) {
         error("Failed to read NVM environment")
         error(err.message)
@@ -67,7 +57,6 @@ function getNvmRoot(nvmPath) {
         const value = match[1].trim().replace(/^["']|["']$/g, "")
 
         if (fs.existsSync(value)) {
-            log(`Resolved NVM root: ${value}`)
             return value
         }
     }
@@ -97,12 +86,9 @@ function getNvmRoot(nvmPath) {
         const versionPath = path.join(possiblePath, `v${requiredNodeVersion}`)
 
         if (fs.existsSync(versionPath)) {
-            log(`Resolved NVM root from environment path: ${possiblePath}`)
             return possiblePath
         }
     }
-
-    error("Could not resolve NVM root from nvm env")
 
     return null
 }
@@ -113,8 +99,6 @@ function getNvmVersions(nvmPath) {
             encoding: "utf8",
             windowsHide: true
         })
-
-        log(`NVM list output:\n${output}`)
 
         const versions = []
 
@@ -130,11 +114,7 @@ function getNvmVersions(nvmPath) {
             }
         }
 
-        const uniqueVersions = [...new Set(versions)]
-
-        log(`Detected NVM versions: ${uniqueVersions.join(", ") || "NONE"}`)
-
-        return uniqueVersions
+        return [...new Set(versions)]
     } catch (err) {
         error("Failed to read NVM versions")
         error(err.message)
@@ -152,8 +132,6 @@ function installNodeWithNvm(nvmPath) {
             windowsHide: false
         })
 
-        log(`Node.js ${requiredNodeVersion} installation completed`)
-
         return true
     } catch (err) {
         error("Failed to install Node.js with NVM")
@@ -163,16 +141,12 @@ function installNodeWithNvm(nvmPath) {
 }
 
 function useNodeWithNvm(nvmPath) {
-    log(`Activating Node.js ${requiredNodeVersion} using NVM`)
-
     try {
         execFileSync(nvmPath, ["use", requiredNodeVersion], {
             stdio: "inherit",
             cwd: root,
             windowsHide: false
         })
-
-        log(`NVM use ${requiredNodeVersion} completed`)
 
         return true
     } catch (err) {
@@ -183,8 +157,6 @@ function useNodeWithNvm(nvmPath) {
 }
 
 function getNvmNodeExecutable(nvmPath) {
-    log("========== Resolving NVM Node executable ==========")
-
     const nvmRoot = getNvmRoot(nvmPath)
 
     if (!nvmRoot) {
@@ -192,33 +164,10 @@ function getNvmNodeExecutable(nvmPath) {
         return null
     }
 
-    const versionDirectory = path.join(nvmRoot, `v${requiredNodeVersion}`)
-
-    log(`NVM version directory: ${versionDirectory}`)
-
-    if (!fs.existsSync(versionDirectory)) {
-        error(`NVM version directory does not exist: ${versionDirectory}`)
-
-        return null
-    }
-
-    const nodeExecutable = path.join(versionDirectory, "node.exe")
-
-    log(`Expected Node executable: ${nodeExecutable}`)
+    const nodeExecutable = path.join(nvmRoot, `v${requiredNodeVersion}`, "node.exe")
 
     if (!fs.existsSync(nodeExecutable)) {
         error(`Node executable does not exist: ${nodeExecutable}`)
-
-        return null
-    }
-
-    const stats = fs.statSync(nodeExecutable)
-
-    log(`Node executable size: ${stats.size} bytes`)
-    log(`Node executable is file: ${stats.isFile()}`)
-
-    if (!stats.isFile()) {
-        error(`Node executable is not a file: ${nodeExecutable}`)
         return null
     }
 
@@ -227,44 +176,30 @@ function getNvmNodeExecutable(nvmPath) {
 
 function getNodeVersion(nodeCommand) {
     try {
-        const version = execFileSync(nodeCommand, ["--version"], {
+        return execFileSync(nodeCommand, ["--version"], {
             encoding: "utf8",
             windowsHide: true
         })
             .trim()
             .replace(/^v/, "")
-
-        log(`Node.js version detected: ${version}`)
-
-        return version
-    } catch (err) {
-        error("Failed to detect Node.js version")
-        error(err.message)
+    } catch {
         return null
     }
 }
 
 function resolveNvmNode() {
-    log("========== Resolving Node.js through NVM ==========")
-
     const nvmPath = getNvmPath()
 
     if (!nvmPath) {
-        log("NVM was not found")
         return null
     }
 
     log("NVM detected")
-    log(`NVM path: ${nvmPath}`)
 
     let versions = getNvmVersions(nvmPath)
 
     if (!versions.includes(requiredNodeVersion)) {
-        log(`Node.js ${requiredNodeVersion} was not found in NVM`)
-
-        const installed = installNodeWithNvm(nvmPath)
-
-        if (!installed) {
+        if (!installNodeWithNvm(nvmPath)) {
             return {
                 supported: false,
                 source: "nvm",
@@ -287,8 +222,6 @@ function resolveNvmNode() {
         }
     }
 
-    log(`Node.js ${requiredNodeVersion} is available in NVM`)
-
     if (!useNodeWithNvm(nvmPath)) {
         return {
             supported: false,
@@ -301,8 +234,6 @@ function resolveNvmNode() {
     const nodeExecutable = getNvmNodeExecutable(nvmPath)
 
     if (!nodeExecutable) {
-        error("Failed to resolve Node.js executable from NVM")
-
         return {
             supported: false,
             source: "nvm",
@@ -325,7 +256,6 @@ function resolveNvmNode() {
     }
 
     log(`Node.js ${version} selected from NVM`)
-    log(`Node executable: ${nodeExecutable}`)
 
     return {
         supported: true,
