@@ -262,6 +262,7 @@ function resolveFnmNode() {
 init_constants();
 init_logger();
 import fs from "node:fs";
+import path2 from "node:path";
 import { execFileSync as execFileSync2 } from "node:child_process";
 function getNvmPath() {
   try {
@@ -269,12 +270,43 @@ function getNvmPath() {
       encoding: "utf8",
       windowsHide: true
     });
-    log(`where nvm.exe output: ${output}`);
     const nvmPath = output.split(/\r?\n/).map((value) => value.trim()).find(Boolean);
-    log(`NVM executable path: ${nvmPath || "NOT FOUND"}`);
     return nvmPath || null;
   } catch (err) {
     error("Failed to find NVM");
+    error(err.message);
+    return null;
+  }
+}
+function getNvmRoot(nvmPath) {
+  try {
+    log("========== Resolving NVM root ==========");
+    const output = execFileSync2(nvmPath, ["root"], {
+      encoding: "utf8",
+      windowsHide: true
+    });
+    log(`NVM root output:
+${output}`);
+    const lines = output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+    const rootLine = lines.at(-1);
+    if (!rootLine) {
+      error("NVM root was not returned");
+      return null;
+    }
+    let nvmRoot = rootLine;
+    const separatorIndex = nvmRoot.lastIndexOf(":");
+    if (separatorIndex !== -1 && nvmRoot.toLowerCase().startsWith("current root")) {
+      nvmRoot = nvmRoot.substring(separatorIndex + 1).trim();
+    }
+    nvmRoot = nvmRoot.replace(/^["']|["']$/g, "");
+    log(`Resolved NVM root: ${nvmRoot}`);
+    if (!fs.existsSync(nvmRoot)) {
+      error(`NVM root does not exist: ${nvmRoot}`);
+      return null;
+    }
+    return nvmRoot;
+  } catch (err) {
+    error("Failed to resolve NVM root");
     error(err.message);
     return null;
   }
@@ -309,7 +341,6 @@ ${output}`);
 }
 function installNodeWithNvm(nvmPath) {
   log(`Installing Node.js ${requiredNodeVersion} using NVM`);
-  log(`NVM executable: ${nvmPath}`);
   try {
     execFileSync2(nvmPath, ["install", requiredNodeVersion], {
       stdio: "inherit",
@@ -326,7 +357,6 @@ function installNodeWithNvm(nvmPath) {
 }
 function useNodeWithNvm(nvmPath) {
   log(`Activating Node.js ${requiredNodeVersion} using NVM`);
-  log(`NVM executable: ${nvmPath}`);
   try {
     execFileSync2(nvmPath, ["use", requiredNodeVersion], {
       stdio: "inherit",
@@ -343,44 +373,31 @@ function useNodeWithNvm(nvmPath) {
 }
 function getNvmNodeExecutable(nvmPath) {
   log("========== Resolving NVM Node executable ==========");
-  log(`NVM executable received: ${nvmPath || "UNDEFINED"}`);
-  if (!nvmPath) {
-    error("Cannot resolve Node executable because NVM path is undefined");
+  const nvmRoot = getNvmRoot(nvmPath);
+  if (!nvmRoot) {
+    error("NVM root could not be resolved");
     return null;
   }
-  try {
-    log(`Running NVM exec for Node.js ${requiredNodeVersion}`);
-    const output = execFileSync2(
-      nvmPath,
-      ["exec", requiredNodeVersion, "node", "-p", "process.execPath"],
-      {
-        encoding: "utf8",
-        cwd: root,
-        windowsHide: true
-      }
-    );
-    log(`NVM exec raw output:
-${output}`);
-    const lines = output.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-    log(`NVM exec parsed lines:`);
-    log(lines);
-    const nodeExecutable = lines.at(-1);
-    log(`Resolved Node executable: ${nodeExecutable || "NOT FOUND"}`);
-    if (!nodeExecutable) {
-      error("NVM did not return a Node executable path");
-      return null;
-    }
-    if (!fs.existsSync(nodeExecutable)) {
-      error(`Resolved Node executable does not exist: ${nodeExecutable}`);
-      return null;
-    }
-    log(`Node executable exists: ${nodeExecutable}`);
-    return nodeExecutable;
-  } catch (err) {
-    error("Failed to resolve Node.js executable from NVM");
-    error(err.message);
+  const versionDirectory = path2.join(nvmRoot, `v${requiredNodeVersion}`);
+  log(`NVM version directory: ${versionDirectory}`);
+  if (!fs.existsSync(versionDirectory)) {
+    error(`NVM version directory does not exist: ${versionDirectory}`);
     return null;
   }
+  const nodeExecutable = path2.join(versionDirectory, "node.exe");
+  log(`Expected Node executable: ${nodeExecutable}`);
+  if (!fs.existsSync(nodeExecutable)) {
+    error(`Node executable does not exist: ${nodeExecutable}`);
+    return null;
+  }
+  const stats = fs.statSync(nodeExecutable);
+  log(`Node executable size: ${stats.size} bytes`);
+  log(`Node executable is file: ${stats.isFile()}`);
+  if (!stats.isFile()) {
+    error(`Node executable is not a file: ${nodeExecutable}`);
+    return null;
+  }
+  return nodeExecutable;
 }
 function getNodeVersion2(nodeCommand) {
   log(`Checking Node.js version using: ${nodeCommand}`);
@@ -421,7 +438,6 @@ function resolveNvmNode() {
     }
     versions = getNvmVersions(nvmPath);
   }
-  log(`Checking if Node.js ${requiredNodeVersion} is available after installation`);
   if (!versions.includes(requiredNodeVersion)) {
     error(`Node.js ${requiredNodeVersion} is not available in NVM after installation`);
     return {
@@ -619,7 +635,7 @@ function runSetup() {
 init_constants();
 init_logger();
 import { spawn as spawn3 } from "node:child_process";
-import path2 from "node:path";
+import path3 from "node:path";
 
 // ../../launcher/utils.mjs
 init_constants();
@@ -680,8 +696,8 @@ function checkExistingRsbuild(node) {
   });
 }
 function startRsbuild(node) {
-  const nodeDirectory = path2.dirname(node.executable);
-  const npmCli = path2.join(nodeDirectory, "node_modules", "npm", "bin", "npm-cli.js");
+  const nodeDirectory = path3.dirname(node.executable);
+  const npmCli = path3.join(nodeDirectory, "node_modules", "npm", "bin", "npm-cli.js");
   state.rsbuildProcess = spawn3(node.executable, [npmCli, "run", "dev"], {
     cwd: projectPath,
     stdio: "inherit",
@@ -730,7 +746,7 @@ init_constants();
 init_logger();
 import { execFileSync as execFileSync4, spawnSync } from "node:child_process";
 import fs2 from "node:fs";
-import path3 from "node:path";
+import path4 from "node:path";
 import os from "node:os";
 function getMongoDBServiceStatus() {
   try {
@@ -806,7 +822,7 @@ function getFriendlyDiskMessage(name, requiredLabel, drive) {
   return `Not enough disk space on ${drive} to install ${name} \u2014 free up at least ${requiredLabel} GB on that drive and try again`;
 }
 function getRootDrive() {
-  return path3.parse(root).root;
+  return path4.parse(root).root;
 }
 function getSystemDrive() {
   return (process.env.SystemDrive || "C:") + "\\";
@@ -890,7 +906,7 @@ function installMsi(installer, name, argumentsList, requiredLabel) {
     error(`[msi] Expected installer: ${installer}`);
     return { success: false, logPath: null };
   }
-  const msiLogPath = path3.join(
+  const msiLogPath = path4.join(
     os.tmpdir(),
     `react-press-${name.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}.log`
   );
@@ -975,16 +991,16 @@ function findMongoshExecutable() {
     }
   } catch {
   }
-  const localAppData = process.env.LOCALAPPDATA || path3.join(os.homedir(), "AppData", "Local");
+  const localAppData = process.env.LOCALAPPDATA || path4.join(os.homedir(), "AppData", "Local");
   const programFiles = process.env.ProgramFiles || "C:\\Program Files";
   const programFilesX86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
   const locations = [
-    path3.join(localAppData, "Programs", "mongosh", "mongosh.exe"),
-    path3.join(localAppData, "Programs", "mongosh", "bin", "mongosh.exe"),
-    path3.join(programFiles, "mongosh", "bin", "mongosh.exe"),
-    path3.join(programFiles, "MongoDB", "mongosh", "bin", "mongosh.exe"),
-    path3.join(programFilesX86, "mongosh", "bin", "mongosh.exe"),
-    path3.join(programFilesX86, "MongoDB", "mongosh", "bin", "mongosh.exe")
+    path4.join(localAppData, "Programs", "mongosh", "mongosh.exe"),
+    path4.join(localAppData, "Programs", "mongosh", "bin", "mongosh.exe"),
+    path4.join(programFiles, "mongosh", "bin", "mongosh.exe"),
+    path4.join(programFiles, "MongoDB", "mongosh", "bin", "mongosh.exe"),
+    path4.join(programFilesX86, "mongosh", "bin", "mongosh.exe"),
+    path4.join(programFilesX86, "MongoDB", "mongosh", "bin", "mongosh.exe")
   ];
   for (const executablePath of locations) {
     if (fs2.existsSync(executablePath)) {
@@ -1008,7 +1024,7 @@ function addMongoshToCurrentPath() {
     error("[mongosh] Cannot add mongosh to PATH because mongosh.exe was not found");
     return false;
   }
-  const binDirectory = path3.dirname(executablePath);
+  const binDirectory = path4.dirname(executablePath);
   const currentPath = process.env.PATH || "";
   const entries = currentPath.split(";").map((entry) => entry.trim().toLowerCase()).filter(Boolean);
   if (!entries.includes(binDirectory.toLowerCase())) {

@@ -1,4 +1,5 @@
 import fs from "node:fs"
+import path from "node:path"
 import { execFileSync } from "node:child_process"
 import { root, requiredNodeVersion } from "./constants.mjs"
 import { log, error } from "./logger.mjs"
@@ -10,18 +11,62 @@ function getNvmPath() {
             windowsHide: true
         })
 
-        log(`where nvm.exe output: ${output}`)
-
         const nvmPath = output
             .split(/\r?\n/)
             .map((value) => value.trim())
             .find(Boolean)
 
-        log(`NVM executable path: ${nvmPath || "NOT FOUND"}`)
-
         return nvmPath || null
     } catch (err) {
         error("Failed to find NVM")
+        error(err.message)
+        return null
+    }
+}
+
+function getNvmRoot(nvmPath) {
+    try {
+        log("========== Resolving NVM root ==========")
+
+        const output = execFileSync(nvmPath, ["root"], {
+            encoding: "utf8",
+            windowsHide: true
+        })
+
+        log(`NVM root output:\n${output}`)
+
+        const lines = output
+            .split(/\r?\n/)
+            .map((value) => value.trim())
+            .filter(Boolean)
+
+        const rootLine = lines.at(-1)
+
+        if (!rootLine) {
+            error("NVM root was not returned")
+            return null
+        }
+
+        let nvmRoot = rootLine
+
+        const separatorIndex = nvmRoot.lastIndexOf(":")
+
+        if (separatorIndex !== -1 && nvmRoot.toLowerCase().startsWith("current root")) {
+            nvmRoot = nvmRoot.substring(separatorIndex + 1).trim()
+        }
+
+        nvmRoot = nvmRoot.replace(/^["']|["']$/g, "")
+
+        log(`Resolved NVM root: ${nvmRoot}`)
+
+        if (!fs.existsSync(nvmRoot)) {
+            error(`NVM root does not exist: ${nvmRoot}`)
+            return null
+        }
+
+        return nvmRoot
+    } catch (err) {
+        error("Failed to resolve NVM root")
         error(err.message)
         return null
     }
@@ -66,7 +111,6 @@ function getNvmVersions(nvmPath) {
 
 function installNodeWithNvm(nvmPath) {
     log(`Installing Node.js ${requiredNodeVersion} using NVM`)
-    log(`NVM executable: ${nvmPath}`)
 
     try {
         execFileSync(nvmPath, ["install", requiredNodeVersion], {
@@ -87,7 +131,6 @@ function installNodeWithNvm(nvmPath) {
 
 function useNodeWithNvm(nvmPath) {
     log(`Activating Node.js ${requiredNodeVersion} using NVM`)
-    log(`NVM executable: ${nvmPath}`)
 
     try {
         execFileSync(nvmPath, ["use", requiredNodeVersion], {
@@ -108,58 +151,43 @@ function useNodeWithNvm(nvmPath) {
 
 function getNvmNodeExecutable(nvmPath) {
     log("========== Resolving NVM Node executable ==========")
-    log(`NVM executable received: ${nvmPath || "UNDEFINED"}`)
 
-    if (!nvmPath) {
-        error("Cannot resolve Node executable because NVM path is undefined")
+    const nvmRoot = getNvmRoot(nvmPath)
+
+    if (!nvmRoot) {
+        error("NVM root could not be resolved")
         return null
     }
 
-    try {
-        log(`Running NVM exec for Node.js ${requiredNodeVersion}`)
+    const versionDirectory = path.join(nvmRoot, `v${requiredNodeVersion}`)
 
-        const output = execFileSync(
-            nvmPath,
-            ["exec", requiredNodeVersion, "node", "-p", "process.execPath"],
-            {
-                encoding: "utf8",
-                cwd: root,
-                windowsHide: true
-            }
-        )
+    log(`NVM version directory: ${versionDirectory}`)
 
-        log(`NVM exec raw output:\n${output}`)
-
-        const lines = output
-            .split(/\r?\n/)
-            .map((value) => value.trim())
-            .filter(Boolean)
-
-        log(`NVM exec parsed lines:`)
-        log(lines)
-
-        const nodeExecutable = lines.at(-1)
-
-        log(`Resolved Node executable: ${nodeExecutable || "NOT FOUND"}`)
-
-        if (!nodeExecutable) {
-            error("NVM did not return a Node executable path")
-            return null
-        }
-
-        if (!fs.existsSync(nodeExecutable)) {
-            error(`Resolved Node executable does not exist: ${nodeExecutable}`)
-            return null
-        }
-
-        log(`Node executable exists: ${nodeExecutable}`)
-
-        return nodeExecutable
-    } catch (err) {
-        error("Failed to resolve Node.js executable from NVM")
-        error(err.message)
+    if (!fs.existsSync(versionDirectory)) {
+        error(`NVM version directory does not exist: ${versionDirectory}`)
         return null
     }
+
+    const nodeExecutable = path.join(versionDirectory, "node.exe")
+
+    log(`Expected Node executable: ${nodeExecutable}`)
+
+    if (!fs.existsSync(nodeExecutable)) {
+        error(`Node executable does not exist: ${nodeExecutable}`)
+        return null
+    }
+
+    const stats = fs.statSync(nodeExecutable)
+
+    log(`Node executable size: ${stats.size} bytes`)
+    log(`Node executable is file: ${stats.isFile()}`)
+
+    if (!stats.isFile()) {
+        error(`Node executable is not a file: ${nodeExecutable}`)
+        return null
+    }
+
+    return nodeExecutable
 }
 
 function getNodeVersion(nodeCommand) {
@@ -215,8 +243,6 @@ function resolveNvmNode() {
 
         versions = getNvmVersions(nvmPath)
     }
-
-    log(`Checking if Node.js ${requiredNodeVersion} is available after installation`)
 
     if (!versions.includes(requiredNodeVersion)) {
         error(`Node.js ${requiredNodeVersion} is not available in NVM after installation`)
