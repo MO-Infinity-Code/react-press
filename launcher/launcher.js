@@ -13,7 +13,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../../launcher/logger.mjs
+// ../../../launcher/logger.mjs
 function log(...args) {
   console.log(`${colors.blue}${logPrefix()}${colors.reset}`, ...args);
 }
@@ -28,7 +28,7 @@ function error(...args) {
 }
 var logPrefix, colors;
 var init_logger = __esm({
-  "../../launcher/logger.mjs"() {
+  "../../../launcher/logger.mjs"() {
     logPrefix = () => `[${(/* @__PURE__ */ new Date()).toISOString()}] MAIN`;
     colors = {
       reset: "\x1B[0m",
@@ -40,12 +40,12 @@ var init_logger = __esm({
   }
 });
 
-// ../../launcher/constants.mjs
+// ../../../launcher/constants.mjs
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 var port, url, requiredNodeVersion, minimumSystemNodeMajor, __filename, __dirname, isSea, root, projectPath, setupScript, nodeErrorPage, mongodbPath, mongodbInstaller, mongoshInstaller;
 var init_constants = __esm({
-  "../../launcher/constants.mjs"() {
+  "../../../launcher/constants.mjs"() {
     port = 3e3;
     url = `http://localhost:${port}/`;
     requiredNodeVersion = "26.4.0";
@@ -54,19 +54,19 @@ var init_constants = __esm({
     __dirname = path.dirname(__filename);
     isSea = process.execPath.toLowerCase().endsWith(".exe");
     root = isSea ? path.resolve(path.dirname(process.execPath), "..") : path.resolve(__dirname, "..");
-    projectPath = path.join(root, "projects", "react-press");
-    setupScript = path.join(root, "scripts", "setup-environment.mjs");
+    projectPath = path.join(root, "react-press", "Front End", "projects", "react-press");
+    setupScript = path.join(root, "react-press", "Front End", "scripts", "setup-environment.mjs");
     nodeErrorPage = path.join(root, "launcher", "node-error.html");
-    mongodbPath = path.join(root, "databases", "progs", "mongodb");
+    mongodbPath = path.join(root, "react-press", "Front End", "databases", "progs", "mongodb");
     mongodbInstaller = path.join(mongodbPath, "mongodb-windows-x86_64-8.3.8-signed.msi");
     mongoshInstaller = path.join(mongodbPath, "mongosh-2.10.0-x64.msi");
   }
 });
 
-// ../../launcher/state.mjs
+// ../../../launcher/state.mjs
 var state;
 var init_state = __esm({
-  "../../launcher/state.mjs"() {
+  "../../../launcher/state.mjs"() {
     state = {
       browserOpened: false,
       rsbuildProcess: null
@@ -74,7 +74,7 @@ var init_state = __esm({
   }
 });
 
-// ../../launcher/browser.mjs
+// ../../../launcher/browser.mjs
 var browser_exports = {};
 __export(browser_exports, {
   openBrowser: () => openBrowser,
@@ -114,24 +114,24 @@ function openNodeErrorPage(detectedVersion) {
   browser.unref();
 }
 var init_browser = __esm({
-  "../../launcher/browser.mjs"() {
+  "../../../launcher/browser.mjs"() {
     init_logger();
     init_state();
     init_constants();
   }
 });
 
-// ../../launcher/main.js
+// ../../../launcher/main.js
 init_logger();
 init_constants();
 import fs3 from "node:fs";
 
-// ../../launcher/setup.mjs
+// ../../../launcher/setup.mjs
 init_constants();
 init_logger();
 import { spawn, execFileSync as execFileSync3 } from "node:child_process";
 
-// ../../launcher/fnm.mjs
+// ../../../launcher/fnm.mjs
 init_constants();
 init_logger();
 import { execFileSync } from "node:child_process";
@@ -258,7 +258,7 @@ function resolveFnmNode() {
   };
 }
 
-// ../../launcher/nvm.mjs
+// ../../../launcher/nvm.mjs
 init_constants();
 init_logger();
 import fs from "node:fs";
@@ -463,7 +463,7 @@ function resolveNvmNode() {
   };
 }
 
-// ../../launcher/setup.mjs
+// ../../../launcher/setup.mjs
 function commandExists(command) {
   try {
     execFileSync3("where.exe", [command], {
@@ -607,13 +607,13 @@ function runSetup() {
   });
 }
 
-// ../../launcher/rsbuildManager.mjs
+// ../../../launcher/rsbuildManager.mjs
 init_constants();
 init_logger();
 import { spawn as spawn3 } from "node:child_process";
 import path3 from "node:path";
 
-// ../../launcher/utils.mjs
+// ../../../launcher/utils.mjs
 init_constants();
 import http from "node:http";
 function waitBeforeExit(code = 1) {
@@ -657,7 +657,7 @@ function checkPort(port2, callback) {
   });
 }
 
-// ../../launcher/rsbuildManager.mjs
+// ../../../launcher/rsbuildManager.mjs
 init_state();
 init_browser();
 function checkExistingRsbuild(node) {
@@ -717,7 +717,7 @@ function waitForRsbuild() {
   }, 300);
 }
 
-// ../../launcher/databaseManager.mjs
+// ../../../launcher/databaseManager.mjs
 init_constants();
 init_logger();
 import { execFileSync as execFileSync4, spawnSync } from "node:child_process";
@@ -1148,7 +1148,7 @@ async function ensureMongoDB() {
   };
 }
 
-// ../../launcher/main.js
+// ../../../launcher/main.js
 function keepAlive() {
   if (!isSea) return;
   process.stdin.resume();
