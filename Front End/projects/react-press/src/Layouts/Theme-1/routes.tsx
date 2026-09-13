@@ -1,8 +1,8 @@
 import type { RouteObject } from "react-router-dom"
 
-import Layout from "./Layout"
-import Register from "./Pages/Register"
-import Dashboard from "./Pages/Dashboard"
+import Layout from "./Pages/Layout/Layout"
+import Register from "./Pages/Auth/Register"
+import Dashboard from "./Pages/Main/Dashboard"
 
 const theme1Routes: RouteObject[] = [
     {
