@@ -19,12 +19,10 @@ const projectPath = path.join(root, "react-press", "Front End", "projects", "rea
 
 const setupScript = path.join(root, "react-press", "Front End", "scripts", "setup-environment.mjs")
 
-const nodeErrorPage = path.join(root, "launcher", "node-error.html")
+const nodeErrorPage = path.join(root, "react-press", "launcher", "node-error.html")
 
-const mongodbPath = path.join(root, "react-press", "Front End", "databases", "progs", "mongodb")
-
+const mongodbPath = path.join(root, "react-press", "databases", "progs", "mongodb")
 const mongodbInstaller = path.join(mongodbPath, "mongodb-windows-x86_64-8.3.8-signed.msi")
-
 const mongoshInstaller = path.join(mongodbPath, "mongosh-2.10.0-x64.msi")
 
 export {

@@ -56,8 +56,9 @@ var init_constants = __esm({
     root = isSea ? path.resolve(path.dirname(process.execPath), "..") : path.resolve(__dirname, "..");
     projectPath = path.join(root, "react-press", "Front End", "projects", "react-press");
     setupScript = path.join(root, "react-press", "Front End", "scripts", "setup-environment.mjs");
-    nodeErrorPage = path.join(root, "launcher", "node-error.html");
-    mongodbPath = path.join(root, "react-press", "Front End", "databases", "progs", "mongodb");
+    nodeErrorPage = path.join(root, "react-press", "launcher", "node-error.html");
+    mongodbPath = path.join(root, "react-press", "databases", "progs", "mongodb");
+    console.log(mongodbPath);
     mongodbInstaller = path.join(mongodbPath, "mongodb-windows-x86_64-8.3.8-signed.msi");
     mongoshInstaller = path.join(mongodbPath, "mongosh-2.10.0-x64.msi");
   }
