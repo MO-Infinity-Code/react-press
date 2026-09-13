@@ -2,11 +2,13 @@ import fs from "node:fs"
 import { log, error } from "./logger.mjs"
 import { isSea, projectPath, setupScript } from "./constants.mjs"
 import { runSetup } from "./setup.mjs"
+import { checkExistingBackend } from "./backendManager.mjs"
 import { checkExistingRsbuild } from "./rsbuildManager.mjs"
 import { ensureMongoDB } from "./databaseManager.mjs"
 
 function keepAlive() {
     if (!isSea) return
+
     process.stdin.resume()
     process.stdin.on("data", () => {})
 }
@@ -45,6 +47,7 @@ async function main() {
 
     if (!mongoResult?.success) {
         fail("React Press could not prepare MongoDB", mongoResult?.reason)
+
         return
     }
 
@@ -65,11 +68,19 @@ async function main() {
         }
 
         fail("React Press could not prepare the required environment")
+
         return
     }
 
     try {
-        checkExistingRsbuild(setupResult.node)
+        await checkExistingBackend(setupResult.node)
+    } catch (err) {
+        fail("Failed to start Back End", err)
+        return
+    }
+
+    try {
+        await checkExistingRsbuild(setupResult.node)
     } catch (err) {
         fail("Failed to start Rsbuild", err)
     }

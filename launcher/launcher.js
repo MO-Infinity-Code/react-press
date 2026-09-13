@@ -43,11 +43,13 @@ var init_logger = __esm({
 // ../../../launcher/constants.mjs
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-var port, url, requiredNodeVersion, minimumSystemNodeMajor, __filename, __dirname, isSea, root, projectPath, setupScript, nodeErrorPage, mongodbPath, mongodbInstaller, mongoshInstaller;
+var port, backendPort, url, backendUrl, requiredNodeVersion, minimumSystemNodeMajor, __filename, __dirname, isSea, root, projectPath, backendProjectPath, setupScript, nodeErrorPage, mongodbPath, mongodbInstaller, mongoshInstaller;
 var init_constants = __esm({
   "../../../launcher/constants.mjs"() {
     port = 3e3;
+    backendPort = 3005;
     url = `http://localhost:${port}/`;
+    backendUrl = `http://localhost:${backendPort}/`;
     requiredNodeVersion = "26.4.0";
     minimumSystemNodeMajor = 26;
     __filename = fileURLToPath(import.meta.url);
@@ -55,10 +57,10 @@ var init_constants = __esm({
     isSea = process.execPath.toLowerCase().endsWith(".exe");
     root = isSea ? path.resolve(path.dirname(process.execPath), "..") : path.resolve(__dirname, "..");
     projectPath = path.join(root, "react-press", "Front End", "projects", "react-press");
+    backendProjectPath = path.join(root, "react-press", "Back End");
     setupScript = path.join(root, "react-press", "Front End", "scripts", "setup-environment.mjs");
     nodeErrorPage = path.join(root, "react-press", "launcher", "node-error.html");
     mongodbPath = path.join(root, "react-press", "databases", "progs", "mongodb");
-    console.log(mongodbPath);
     mongodbInstaller = path.join(mongodbPath, "mongodb-windows-x86_64-8.3.8-signed.msi");
     mongoshInstaller = path.join(mongodbPath, "mongosh-2.10.0-x64.msi");
   }
@@ -70,6 +72,7 @@ var init_state = __esm({
   "../../../launcher/state.mjs"() {
     state = {
       browserOpened: false,
+      backendProcess: null,
       rsbuildProcess: null
     };
   }
@@ -81,12 +84,12 @@ __export(browser_exports, {
   openBrowser: () => openBrowser,
   openNodeErrorPage: () => openNodeErrorPage
 });
-import { spawn as spawn2 } from "node:child_process";
+import { spawn as spawn3 } from "node:child_process";
 function openBrowser() {
   if (state.browserOpened) return;
   state.browserOpened = true;
   success("Opening:", url);
-  const browser = spawn2("cmd.exe", ["/c", "start", "", url], {
+  const browser = spawn3("cmd.exe", ["/c", "start", "", url], {
     detached: true,
     stdio: "ignore",
     windowsHide: true
@@ -103,7 +106,7 @@ function openNodeErrorPage(detectedVersion) {
   const encodedVersion = encodeURIComponent(detectedVersion || "Unknown");
   const page = `file:///${nodeErrorPage.replace(/\\/g, "/")}${separator}detected=${encodedVersion}`;
   warn("Opening Node.js error page:", page);
-  const browser = spawn2("cmd.exe", ["/c", "start", "", page], {
+  const browser = spawn3("cmd.exe", ["/c", "start", "", page], {
     detached: true,
     stdio: "ignore",
     windowsHide: true
@@ -608,10 +611,10 @@ function runSetup() {
   });
 }
 
-// ../../../launcher/rsbuildManager.mjs
+// ../../../launcher/backendManager.mjs
 init_constants();
 init_logger();
-import { spawn as spawn3 } from "node:child_process";
+import { spawn as spawn2 } from "node:child_process";
 import path3 from "node:path";
 
 // ../../../launcher/utils.mjs
@@ -658,7 +661,73 @@ function checkPort(port2, callback) {
   });
 }
 
+// ../../../launcher/backendManager.mjs
+init_state();
+function checkExistingBackend(node) {
+  return new Promise((resolve, reject) => {
+    checkPort(backendPort, (exists) => {
+      if (exists) {
+        log("Back End already running");
+        waitForBackend().then(resolve).catch(reject);
+        return;
+      }
+      log("Starting Back End...");
+      startBackend(node);
+      waitForBackend().then(resolve).catch(reject);
+    });
+  });
+}
+function startBackend(node) {
+  const nodeDirectory = path3.dirname(node.executable);
+  const npmCli = path3.join(nodeDirectory, "node_modules", "npm", "bin", "npm-cli.js");
+  state.backendProcess = spawn2(node.executable, [npmCli, "run", "dev"], {
+    cwd: backendProjectPath,
+    stdio: "inherit",
+    windowsHide: false,
+    env: {
+      ...process.env,
+      PATH: `${nodeDirectory};${process.env.PATH || ""}`
+    }
+  });
+  state.backendProcess.on("error", (err) => {
+    error("Failed to start Back End");
+    error(err.message);
+  });
+  state.backendProcess.on("close", (code) => {
+    if (code !== 0) {
+      error(`Back End exited with code ${code}`);
+    }
+  });
+}
+function waitForBackend() {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const maxAttempts = 100;
+    const interval = setInterval(() => {
+      attempts++;
+      checkPort(backendPort, (exists) => {
+        if (exists) {
+          clearInterval(interval);
+          success(`Back End ready: http://localhost:${backendPort}/`);
+          resolve();
+          return;
+        }
+        if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          error("Back End did not become ready");
+          reject(new Error("Back End startup timeout"));
+          waitBeforeExit();
+        }
+      });
+    }, 300);
+  });
+}
+
 // ../../../launcher/rsbuildManager.mjs
+init_constants();
+init_logger();
+import { spawn as spawn4 } from "node:child_process";
+import path4 from "node:path";
 init_state();
 init_browser();
 function checkExistingRsbuild(node) {
@@ -673,9 +742,9 @@ function checkExistingRsbuild(node) {
   });
 }
 function startRsbuild(node) {
-  const nodeDirectory = path3.dirname(node.executable);
-  const npmCli = path3.join(nodeDirectory, "node_modules", "npm", "bin", "npm-cli.js");
-  state.rsbuildProcess = spawn3(node.executable, [npmCli, "run", "dev"], {
+  const nodeDirectory = path4.dirname(node.executable);
+  const npmCli = path4.join(nodeDirectory, "node_modules", "npm", "bin", "npm-cli.js");
+  state.rsbuildProcess = spawn4(node.executable, [npmCli, "run", "dev"], {
     cwd: projectPath,
     stdio: "inherit",
     windowsHide: false,
@@ -723,7 +792,7 @@ init_constants();
 init_logger();
 import { execFileSync as execFileSync4, spawnSync } from "node:child_process";
 import fs2 from "node:fs";
-import path4 from "node:path";
+import path5 from "node:path";
 import os from "node:os";
 function getMongoDBServiceStatus() {
   try {
@@ -799,7 +868,7 @@ function getFriendlyDiskMessage(name, requiredLabel, drive) {
   return `Not enough disk space on ${drive} to install ${name} \u2014 free up at least ${requiredLabel} GB on that drive and try again`;
 }
 function getRootDrive() {
-  return path4.parse(root).root;
+  return path5.parse(root).root;
 }
 function getSystemDrive() {
   return (process.env.SystemDrive || "C:") + "\\";
@@ -883,7 +952,7 @@ function installMsi(installer, name, argumentsList, requiredLabel) {
     error(`[msi] Expected installer: ${installer}`);
     return { success: false, logPath: null };
   }
-  const msiLogPath = path4.join(
+  const msiLogPath = path5.join(
     os.tmpdir(),
     `react-press-${name.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}.log`
   );
@@ -968,16 +1037,16 @@ function findMongoshExecutable() {
     }
   } catch {
   }
-  const localAppData = process.env.LOCALAPPDATA || path4.join(os.homedir(), "AppData", "Local");
+  const localAppData = process.env.LOCALAPPDATA || path5.join(os.homedir(), "AppData", "Local");
   const programFiles = process.env.ProgramFiles || "C:\\Program Files";
   const programFilesX86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
   const locations = [
-    path4.join(localAppData, "Programs", "mongosh", "mongosh.exe"),
-    path4.join(localAppData, "Programs", "mongosh", "bin", "mongosh.exe"),
-    path4.join(programFiles, "mongosh", "bin", "mongosh.exe"),
-    path4.join(programFiles, "MongoDB", "mongosh", "bin", "mongosh.exe"),
-    path4.join(programFilesX86, "mongosh", "bin", "mongosh.exe"),
-    path4.join(programFilesX86, "MongoDB", "mongosh", "bin", "mongosh.exe")
+    path5.join(localAppData, "Programs", "mongosh", "mongosh.exe"),
+    path5.join(localAppData, "Programs", "mongosh", "bin", "mongosh.exe"),
+    path5.join(programFiles, "mongosh", "bin", "mongosh.exe"),
+    path5.join(programFiles, "MongoDB", "mongosh", "bin", "mongosh.exe"),
+    path5.join(programFilesX86, "mongosh", "bin", "mongosh.exe"),
+    path5.join(programFilesX86, "MongoDB", "mongosh", "bin", "mongosh.exe")
   ];
   for (const executablePath of locations) {
     if (fs2.existsSync(executablePath)) {
@@ -1001,7 +1070,7 @@ function addMongoshToCurrentPath() {
     error("[mongosh] Cannot add mongosh to PATH because mongosh.exe was not found");
     return false;
   }
-  const binDirectory = path4.dirname(executablePath);
+  const binDirectory = path5.dirname(executablePath);
   const currentPath = process.env.PATH || "";
   const entries = currentPath.split(";").map((entry) => entry.trim().toLowerCase()).filter(Boolean);
   if (!entries.includes(binDirectory.toLowerCase())) {
@@ -1200,7 +1269,13 @@ async function main() {
     return;
   }
   try {
-    checkExistingRsbuild(setupResult.node);
+    await checkExistingBackend(setupResult.node);
+  } catch (err) {
+    fail("Failed to start Back End", err);
+    return;
+  }
+  try {
+    await checkExistingRsbuild(setupResult.node);
   } catch (err) {
     fail("Failed to start Rsbuild", err);
   }
