@@ -1,20 +1,23 @@
 import React from "react"
 import ReactDOM from "react-dom/client"
-import { RouterProvider } from "react-router-dom"
 
 import { getReactPressTheme } from "../Hooks/Theme/storage"
-import createRouter from "../Routers"
+import { getReactPressUser } from "../Hooks/User-Data/storage"
+import App from "./App"
 
 const rootEl = document.getElementById("root")
 
 if (rootEl) {
     const theme = getReactPressTheme()
-    const router = createRouter(theme)
+    const user = getReactPressUser()
     const root = ReactDOM.createRoot(rootEl)
 
     root.render(
         <React.StrictMode>
-            <RouterProvider router={router} />
+            <App
+                theme={theme}
+                user={user}
+            />
         </React.StrictMode>
     )
 }
