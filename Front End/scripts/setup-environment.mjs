@@ -9,8 +9,17 @@ const root = path.resolve(__dirname, "..")
 const version = "19.2.8"
 
 const source = path.resolve(root, "react", version, "node_modules")
-
 const target = path.resolve(root, "projects", "react-press", "node_modules")
+
+const logPrefix = () => `[${new Date().toISOString()}] MAIN`
+
+const colors = {
+    reset: "\x1b[0m",
+    blue: "\x1b[36m",
+    green: "\x1b[32m",
+    yellow: "\x1b[33m",
+    red: "\x1b[31m"
+}
 
 function normalizePath(value) {
     return path.resolve(value).replace(/\\/g, "/").toLowerCase()
@@ -97,11 +106,14 @@ function createEnvironmentLink() {
 }
 
 if (!fs.existsSync(source)) {
-    throw new Error(`React environment not found: ${source}`)
+    console.log(`${colors.red}${logPrefix()} React environment not found: ${source}${colors.reset}`)
+    process.exit(1)
 }
 
 if (isCorrectEnvironment()) {
-    console.log(`Environment ${version} already linked`)
+    console.log(
+        `${colors.green}${logPrefix()} Environment ${version} already linked${colors.reset}`
+    )
     process.exit(0)
 }
 
@@ -109,15 +121,17 @@ const targetType = getTargetType()
 const oldTarget = getTargetRealPath()
 
 if (targetType !== "missing") {
-    console.log(`Invalid node_modules detected`)
+    console.log(`${colors.yellow}${logPrefix()} Invalid node_modules detected${colors.reset}`)
 
     if (oldTarget) {
-        console.log(`Old target: ${oldTarget}`)
+        console.log(`${colors.blue}${logPrefix()} Old target: ${oldTarget}${colors.reset}`)
     } else {
-        console.log(`Broken node_modules link detected`)
+        console.log(`${colors.red}${logPrefix()} Broken node_modules link detected${colors.reset}`)
     }
 }
 
 createEnvironmentLink()
 
-console.log(`Environment ${version} linked successfully`)
+console.log(
+    `${colors.green}${logPrefix()} Environment ${version} linked successfully${colors.reset}`
+)
